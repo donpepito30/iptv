@@ -173,6 +173,40 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Mobile Sub-Navigation Bar */}
+      <div className="flex md:hidden items-center justify-around px-2 py-1.5 border-t border-[#1e293b]/70 bg-[#080d17] text-xs font-semibold text-[#94a3b8]">
+        <button
+          type="button"
+          onClick={() => onNavigate('browse')}
+          className={`flex items-center gap-1.5 py-1 px-3 rounded-lg transition-colors ${
+            currentView === 'browse' ? 'text-emerald-400 font-bold bg-emerald-500/10' : ''
+          }`}
+        >
+          <Tv className="w-3.5 h-3.5" />
+          <span>{t(language, 'navHome')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('categories')}
+          className={`flex items-center gap-1.5 py-1 px-3 rounded-lg transition-colors ${
+            currentView === 'categories' ? 'text-emerald-400 font-bold bg-emerald-500/10' : ''
+          }`}
+        >
+          <Compass className="w-3.5 h-3.5" />
+          <span>{t(language, 'navCategories')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('guide')}
+          className={`flex items-center gap-1.5 py-1 px-3 rounded-lg transition-colors ${
+            currentView === 'guide' ? 'text-emerald-400 font-bold bg-emerald-500/10' : ''
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          <span>{t(language, 'navGuide')}</span>
+        </button>
+      </div>
     </header>
   );
 };

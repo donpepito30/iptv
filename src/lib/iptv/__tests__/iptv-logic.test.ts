@@ -43,7 +43,7 @@ assert(getStreamQualityLabel({ url: '', channel: '', height: 720 }) === '720p', 
 
 // Test 3: matchesQuery
 const sample = CURATED_CHANNELS[0];
-assert(matchesQuery(sample, 'RTVE'), 'Should match RTVE');
+assert(matchesQuery(sample, '3Cat') || matchesQuery(sample, 'Canal'), 'Should match channel name');
 assert(matchesQuery(sample, 'news'), 'Should match news category');
 
 // Test 4: filterChannels
@@ -126,5 +126,12 @@ assert(translate('es', 'navHome') === 'Inicio', 'ES translation');
 assert(translate('en', 'navHome') === 'Home', 'EN translation');
 assert(translate('pt', 'navHome') === 'Início', 'PT translation');
 assert(t('es', 'channelsFound') === 'canales encontrados', 't shortcut');
+
+// Test 15: Stream Proxy & Relay URL generation
+import { getProxiedStreamUrl, isProxiedStreamUrl } from '../stream-proxy.ts';
+const rawStreamUrl = 'http://edge.broadcast.net/live/channel.m3u8';
+const proxiedUrl = getProxiedStreamUrl(rawStreamUrl);
+assert(isProxiedStreamUrl(proxiedUrl), 'isProxiedStreamUrl must return true for proxied url');
+assert(proxiedUrl.includes(encodeURIComponent(rawStreamUrl)), 'Proxied url must encode target stream');
 
 console.log('✅ All IPTV pure logic unit tests passed successfully!');

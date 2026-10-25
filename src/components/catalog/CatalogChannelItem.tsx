@@ -4,7 +4,8 @@
  */
 
 import { Play, Tv } from 'lucide-react';
-import React from 'react';
+import React, { useState } from 'react';
+import { getChannelAvatar } from '../../lib/iptv/avatar.ts';
 import { CatalogChannel } from '../../lib/iptv/types.ts';
 
 export interface CatalogChannelItemProps {
@@ -20,6 +21,18 @@ export const CatalogChannelItem: React.FC<CatalogChannelItemProps> = ({
   isActive,
   onSelect,
 }) => {
+  const [logoStage, setLogoStage] = useState<number>(0);
+  const avatar = getChannelAvatar(channel.name);
+
+  const getLogoSrc = () => {
+    if (!channel.logo) return null;
+    if (logoStage === 0) return channel.logo;
+    if (logoStage === 1) return `/api/image-proxy?url=${encodeURIComponent(channel.logo)}`;
+    return null;
+  };
+
+  const currentLogoSrc = getLogoSrc();
+
   return (
     <div
       onClick={() => onSelect(channel)}
@@ -31,7 +44,7 @@ export const CatalogChannelItem: React.FC<CatalogChannelItemProps> = ({
           onSelect(channel);
         }
       }}
-      className={`group flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all duration-150 select-none ${
+      className={`group flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all duration-150 select-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:scale-[1.01] focus:z-10 ${
         isActive
           ? 'bg-[#14233c] border-2 border-[#34d399] shadow-lg shadow-emerald-500/10'
           : 'bg-[#111c2f] border border-[#1e293b] hover:border-slate-700 hover:bg-[#16233b]'
@@ -39,19 +52,21 @@ export const CatalogChannelItem: React.FC<CatalogChannelItemProps> = ({
     >
       <div className="flex items-center gap-3 min-w-0 flex-1">
         {/* Index & Logo / Fallback icon */}
-        <div className="relative w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
-          {channel.logo ? (
+        <div className="relative w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden p-1 shadow-inner">
+          {currentLogoSrc ? (
             <img
-              src={channel.logo}
+              src={currentLogoSrc}
               alt={channel.name}
               referrerPolicy="no-referrer"
-              className="w-full h-full object-contain p-1"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = 'none';
-              }}
+              className="w-full h-full object-contain filter drop-shadow-sm"
+              onError={() => setLogoStage((prev) => prev + 1)}
             />
           ) : (
-            <Tv className="w-4 h-4 text-slate-500" />
+            <div
+              className={`w-full h-full rounded-lg bg-gradient-to-tr ${avatar.gradient} flex items-center justify-center text-white font-black text-xs`}
+            >
+              {avatar.initials}
+            </div>
           )}
         </div>
 

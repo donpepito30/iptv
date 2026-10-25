@@ -5,6 +5,7 @@
 
 import { CURATED_CHANNELS } from './curated.ts';
 import { getFallbackCountryFlag, getStreamQualityLabel } from './filter.ts';
+import { getCachedCatalogFromDB, saveCatalogToDB } from './indexed-catalog.ts';
 import {
   BlocklistItem,
   Category,
@@ -89,6 +90,13 @@ export async function fetchFullCatalog(
     return { channels: inMemoryChannelsCache, isFallback: false };
   }
 
+  // 1. Check local IndexedDB cache for instant boot
+  const dbCached = await getCachedCatalogFromDB();
+  if (dbCached && dbCached.length > 0) {
+    inMemoryChannelsCache = dbCached;
+    return { channels: dbCached, isFallback: false };
+  }
+
   try {
     onProgress?.('Cargando países y filtros...');
     const [countries, blocklist] = await Promise.all([
@@ -166,6 +174,7 @@ export async function fetchFullCatalog(
     }
 
     inMemoryChannelsCache = merged;
+    saveCatalogToDB(merged).catch(() => {});
     return { channels: merged, isFallback: false };
   } catch (error) {
     console.error('[iptv-api] Error assembling catalog:', error);

@@ -3,11 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { ArrowLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Layers, Sparkles } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { CATEGORY_BY_ID, MAIN_CATEGORIES } from '../../lib/iptv/categories.ts';
 import { CatalogChannel } from '../../lib/iptv/types.ts';
-import { ChannelCard } from '../channel/ChannelCard.tsx';
+import { InfiniteChannelGrid } from '../home/InfiniteChannelGrid.tsx';
 
 export interface CategoriesViewProps {
   channels: CatalogChannel[];
@@ -42,7 +42,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
     return map;
   }, [channels]);
 
-  // If a category is selected, show detail view with subcategory chips + channel grid
+  // If a category is selected, show detail view with subcategory chips + infinite channel grid
   if (selectedCategoryId) {
     const categoryMeta = CATEGORY_BY_ID.get(selectedCategoryId);
     const categoryChannels = channels.filter((c) => c.primary_category === selectedCategoryId);
@@ -129,30 +129,29 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
           </div>
         )}
 
-        {/* Channel Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {filteredCategoryChannels.map((channel) => (
-            <ChannelCard
-              key={channel.id}
-              channel={channel}
-              isActive={channel.id === activeChannelId}
-              isFavorite={favoriteIds.has(channel.id)}
-              onSelect={onSelectChannel}
-              onToggleFavorite={onToggleFavorite}
-            />
-          ))}
-        </div>
+        {/* High performance infinite channel grid */}
+        <InfiniteChannelGrid
+          channels={filteredCategoryChannels}
+          activeChannelId={activeChannelId}
+          favoriteIds={favoriteIds}
+          onSelectChannel={onSelectChannel}
+          onToggleFavorite={onToggleFavorite}
+          onResetFilters={() => setSelectedSubcategory('ALL')}
+        />
       </div>
     );
   }
 
-  // Main Categories Explorer Grid (14 cards)
+  // Main Categories Explorer Grid with TiviMate/Pluto TV aesthetics
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-[#e2e8f0]">Categorías</h1>
-          <p className="text-xs text-[#94a3b8] mt-1">Explora los canales agrupados por género y temáticas</p>
+          <h1 className="text-2xl font-black tracking-tight text-[#e2e8f0] flex items-center gap-2.5">
+            <Layers className="w-6 h-6 text-emerald-400" />
+            <span>Guía por Categorías</span>
+          </h1>
+          <p className="text-xs text-[#94a3b8] mt-1">Explora los canales agrupados por género, idioma y temática</p>
         </div>
       </div>
 
@@ -172,7 +171,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
                   onSelectCategory(cat.id);
                 }
               }}
-              className={`group relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${cat.gradient} cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg text-white select-none`}
+              className={`group relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${cat.gradient} cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg text-white select-none focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:scale-[1.02]`}
             >
               <div className="relative z-10 flex flex-col justify-between h-32">
                 <div className="flex items-center justify-between">

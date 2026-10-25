@@ -4,19 +4,18 @@
  */
 
 import {
+  Activity,
   Check,
   ChevronDown,
-  Maximize2,
-  Minimize2,
-  PictureInPicture2,
-  Play,
-  Volume2,
-  VolumeX,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CatalogChannel, UserSettings } from '../../lib/iptv/types.ts';
 import { usePlayerEngine } from '../../lib/iptv/usePlayerEngine.ts';
+import { AudioOnlyFallback } from './AudioOnlyFallback.tsx';
+import { ChannelOsd } from './ChannelOsd.tsx';
+import { PlayerBottomBar } from './PlayerBottomBar.tsx';
 import { PlayerErrorOverlay, PlayerLoadingOverlay } from './PlayerOverlays.tsx';
+import { TelemetryHud } from './TelemetryHud.tsx';
 
 export interface PlayerProps {
   channel: CatalogChannel | null;
@@ -30,17 +29,19 @@ export const Player: React.FC<PlayerProps> = ({
   channel,
   settings,
   onUpdateSettings,
+  onPrevChannel,
+  onNextChannel,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [showTelemetry, setShowTelemetry] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
 
   const engine = usePlayerEngine(channel, isPlaying);
 
-  // Sync volume & mute to video element
   useEffect(() => {
     if (engine.videoRef.current) {
       engine.videoRef.current.volume = settings.volume;
@@ -48,7 +49,6 @@ export const Player: React.FC<PlayerProps> = ({
     }
   }, [settings.volume, settings.muted, engine.videoRef]);
 
-  // Sync play/pause
   useEffect(() => {
     const video = engine.videoRef.current;
     if (!video) return;
@@ -59,38 +59,11 @@ export const Player: React.FC<PlayerProps> = ({
     }
   }, [isPlaying, engine.videoRef]);
 
-  // Fullscreen state listener
   useEffect(() => {
     const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFsChange);
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
-
-  // Keyboard shortcuts (Space, M, F)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        document.activeElement instanceof HTMLInputElement ||
-        document.activeElement instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
-
-      if (e.code === 'Space') {
-        e.preventDefault();
-        setIsPlaying((p) => !p);
-      } else if (e.code === 'KeyM') {
-        e.preventDefault();
-        onUpdateSettings({ muted: !settings.muted });
-      } else if (e.code === 'KeyF') {
-        e.preventDefault();
-        toggleFullscreen();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [settings.muted, onUpdateSettings]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
@@ -110,6 +83,52 @@ export const Player: React.FC<PlayerProps> = ({
       video.requestPictureInPicture().catch(() => {});
     }
   }, [engine.videoRef]);
+
+  // 10-Foot UI Keyboard shortcuts (Space, M, F, I, S, Arrows/Page keys for flipping)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space' || e.code === 'MediaPlayPause' || e.key === 'MediaPlayPause') {
+        e.preventDefault();
+        setIsPlaying((p) => !p);
+      } else if (e.code === 'KeyM') {
+        e.preventDefault();
+        onUpdateSettings({ muted: !settings.muted });
+      } else if (e.code === 'KeyF') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.code === 'KeyP') {
+        e.preventDefault();
+        togglePip();
+      } else if (e.code === 'KeyI') {
+        e.preventDefault();
+        setShowTelemetry((prev) => !prev);
+      } else if (e.code === 'KeyS' && engine.usableStreams.length > 1) {
+        e.preventDefault();
+        const nextIdx = (engine.currentStreamIndex + 1) % engine.usableStreams.length;
+        engine.switchStreamIndex(nextIdx);
+      } else if (e.code === 'PageUp' || e.code === 'ArrowUp' || e.key === 'ChannelUp') {
+        if (onPrevChannel) {
+          e.preventDefault();
+          onPrevChannel();
+        }
+      } else if (e.code === 'PageDown' || e.code === 'ArrowDown' || e.key === 'ChannelDown') {
+        if (onNextChannel) {
+          e.preventDefault();
+          onNextChannel();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [settings.muted, onUpdateSettings, toggleFullscreen, onPrevChannel, onNextChannel, engine]);
 
   const resetHideTimer = () => {
     setIsHovered(true);
@@ -140,6 +159,22 @@ export const Player: React.FC<PlayerProps> = ({
         onPause={() => setIsPlaying(false)}
       />
 
+      {/* 10-Foot OSD Info Banner on channel change */}
+      <ChannelOsd channel={channel} usingProxy={engine.usingProxy} />
+
+      {/* Audio-only Radio Mode Fallback */}
+      {engine.telemetry.isAudioOnly && <AudioOnlyFallback channel={channel} />}
+
+      {/* Stats for Nerds HUD */}
+      {showTelemetry && (
+        <TelemetryHud
+          telemetry={engine.telemetry}
+          currentStreamIndex={engine.currentStreamIndex}
+          totalStreams={engine.usableStreams.length}
+          onClose={() => setShowTelemetry(false)}
+        />
+      )}
+
       {/* Loading Overlay */}
       {(engine.status === 'loading' || engine.status === 'checking') && (
         <PlayerLoadingOverlay
@@ -149,52 +184,54 @@ export const Player: React.FC<PlayerProps> = ({
         />
       )}
 
-      {/* Error Overlay with honest CORS / timeout reason + Retry + Source selector */}
+      {/* Error Overlay */}
       {engine.status === 'error' && (
         <PlayerErrorOverlay
           errorMessage={engine.errorMessage}
+          errorKind={engine.errorKind}
           usableStreams={engine.usableStreams}
           currentStreamIndex={engine.currentStreamIndex}
-          onSwitchStream={engine.switchStreamIndex}
           onRetry={engine.retry}
+          onRetryWithProxy={engine.retryWithProxy}
+          onNextChannel={onNextChannel}
+          onSwitchStream={engine.switchStreamIndex}
         />
       )}
 
-      {/* Overlaid Controls */}
+      {/* Floating Controls Overlay */}
       <div
-        className={`absolute inset-0 flex flex-col justify-between p-4 pointer-events-none transition-opacity duration-300 ${
+        className={`absolute inset-0 pointer-events-none flex flex-col justify-between p-4 transition-opacity duration-300 ${
           isHovered || !isPlaying ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        {/* Top: LIVE Badge + Quality panel */}
-        <div className="flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-bold tracking-wider">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>LIVE</span>
-            </div>
+        {/* Top Control Bar: Quality Selector & Telemetry button */}
+        <div className="flex items-center justify-end gap-2 pointer-events-auto">
+          <button
+            type="button"
+            onClick={() => setShowTelemetry(!showTelemetry)}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+              showTelemetry
+                ? 'bg-emerald-500 text-slate-950 font-bold'
+                : 'bg-black/60 hover:bg-black/80 text-slate-300'
+            }`}
+            title="Telemetría técnica (I)"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Telemetría</span>
+          </button>
 
-            {engine.usableStreams.length > 1 && (
-              <span className="text-[11px] font-mono text-slate-400 bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700">
-                Fuente {engine.currentStreamIndex + 1}/{engine.usableStreams.length}
-              </span>
-            )}
-          </div>
-
-          {/* Quality Panel */}
           {engine.qualityLevels.length > 0 && (
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowQualityMenu(!showQualityMenu)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900/85 backdrop-blur border border-slate-700 text-xs text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 text-xs font-medium text-slate-200 flex items-center gap-1.5 border border-slate-700/60 backdrop-blur-md cursor-pointer"
               >
                 <span>{currentLevelText}</span>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
-
               {showQualityMenu && (
-                <div className="absolute right-0 mt-1 w-36 rounded-xl bg-slate-900/95 backdrop-blur-md border border-slate-700 shadow-2xl py-1 z-30">
+                <div className="absolute right-0 top-full mt-2 w-36 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-30">
                   <button
                     type="button"
                     onClick={() => {
@@ -229,70 +266,15 @@ export const Player: React.FC<PlayerProps> = ({
         </div>
 
         {/* Bottom Controls Bar */}
-        <div className="pointer-events-auto bg-gradient-to-t from-black/90 via-black/50 to-transparent p-3 rounded-xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 shadow-md shadow-emerald-500/20 cursor-pointer"
-              title={isPlaying ? 'Pausa (Espacio)' : 'Reproducir (Espacio)'}
-            >
-              {isPlaying ? (
-                <span className="flex gap-1">
-                  <span className="w-1.5 h-3.5 bg-slate-950 rounded-xs" />
-                  <span className="w-1.5 h-3.5 bg-slate-950 rounded-xs" />
-                </span>
-              ) : (
-                <Play className="w-4 h-4 fill-slate-950 translate-x-0.5" />
-              )}
-            </button>
-
-            {/* Volume slider & mute */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => onUpdateSettings({ muted: !settings.muted })}
-                className="p-1.5 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
-                title="Silencio (M)"
-              >
-                {settings.muted || settings.volume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-red-400" />
-                ) : (
-                  <Volume2 className="w-4 h-4" />
-                )}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={settings.muted ? 0 : settings.volume}
-                onChange={(e) => onUpdateSettings({ volume: parseFloat(e.target.value), muted: false })}
-                className="w-20 accent-emerald-400 h-1.5 rounded-lg bg-slate-700 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {/* Right Tools: PiP + Fullscreen */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={togglePip}
-              className="p-2 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Picture-in-Picture"
-            >
-              <PictureInPicture2 className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className="p-2 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
-              title="Pantalla completa (F)"
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            </button>
-          </div>
-        </div>
+        <PlayerBottomBar
+          isPlaying={isPlaying}
+          isFullscreen={isFullscreen}
+          settings={settings}
+          onTogglePlay={() => setIsPlaying(!isPlaying)}
+          onUpdateSettings={onUpdateSettings}
+          onTogglePip={togglePip}
+          onToggleFullscreen={toggleFullscreen}
+        />
       </div>
     </div>
   );

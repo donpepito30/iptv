@@ -81,6 +81,26 @@ export const WatchView: React.FC<WatchViewProps> = ({
 
   const avatar = getChannelAvatar(channel.name);
 
+  const currentIndex = useMemo(() => {
+    return allChannels.findIndex((c) => c.id === channel?.id);
+  }, [allChannels, channel?.id]);
+
+  const handlePrevChannel = () => {
+    if (currentIndex > 0) {
+      onSelectChannel(allChannels[currentIndex - 1]);
+    } else if (allChannels.length > 0) {
+      onSelectChannel(allChannels[allChannels.length - 1]);
+    }
+  };
+
+  const handleNextChannel = () => {
+    if (currentIndex >= 0 && currentIndex < allChannels.length - 1) {
+      onSelectChannel(allChannels[currentIndex + 1]);
+    } else if (allChannels.length > 0) {
+      onSelectChannel(allChannels[0]);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Top Navigation Back Button */}
@@ -98,7 +118,13 @@ export const WatchView: React.FC<WatchViewProps> = ({
       </div>
 
       {/* Main Full Player Viewport */}
-      <Player channel={channel} settings={settings} onUpdateSettings={onUpdateSettings} />
+      <Player
+        channel={channel}
+        settings={settings}
+        onUpdateSettings={onUpdateSettings}
+        onPrevChannel={handlePrevChannel}
+        onNextChannel={handleNextChannel}
+      />
 
       {/* Channel Details Info Sheet */}
       <div className="p-5 rounded-2xl bg-[#111c2f] border border-[#1e293b] flex flex-col md:flex-row md:items-center justify-between gap-5">

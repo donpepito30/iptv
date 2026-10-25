@@ -5,6 +5,7 @@
 
 import { resolveChannelCategories } from './categories.ts';
 import { getFallbackCountryFlag } from './filter.ts';
+import { loadCatalogFromIndexedDb, saveCatalogToIndexedDb } from './indexed-db.ts';
 import {
   Category,
   CatalogChannel,
@@ -12,6 +13,7 @@ import {
   CatalogStream,
   Country,
   RawChannel,
+  RawLogo,
   RawStream,
   Region,
 } from './types.ts';
@@ -57,23 +59,27 @@ async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 }
 
 /**
- * Downloads the 6 JSON datasets from iptv-org in parallel,
- * filters blocked/closed/nsfw/empty channels, resolves country/region,
- * and groups streams by quality.
+ * Downloads datasets from iptv-org (including 35,000+ logos),
+ * caches in IndexedDB with 24h TTL, and resolves categories & quality.
  */
 export async function buildCatalog(options?: {
   onProgress?: (msg: string) => void;
   signal?: AbortSignal;
   forceRefresh?: boolean;
 }): Promise<CatalogResult> {
-  if (!options?.forceRefresh && catalogModuleCache) {
-    return catalogModuleCache;
+  if (!options?.forceRefresh) {
+    if (catalogModuleCache) return catalogModuleCache;
+    const dbCached = await loadCatalogFromIndexedDb();
+    if (dbCached && dbCached.channels.length > 0) {
+      catalogModuleCache = dbCached;
+      return dbCached;
+    }
   }
 
-  options?.onProgress?.('Descargando datos de iptv-org...');
+  options?.onProgress?.('Descargando catálogo y logos de iptv-org...');
 
-  // 1. Download all 6 JSON datasets in parallel
-  const [channelsRaw, streamsRaw, countriesRaw, categoriesRaw, regionsRaw, blocklistRaw] =
+  // Download all 7 JSON datasets in parallel
+  const [channelsRaw, streamsRaw, countriesRaw, categoriesRaw, regionsRaw, blocklistRaw, logosRaw] =
     await Promise.all([
       fetchJson<RawChannel[]>(`${BASE_API}/channels.json`, options?.signal),
       fetchJson<RawStream[]>(`${BASE_API}/streams.json`, options?.signal),
@@ -81,11 +87,24 @@ export async function buildCatalog(options?: {
       fetchJson<Category[]>(`${BASE_API}/categories.json`, options?.signal),
       fetchJson<Region[]>(`${BASE_API}/regions.json`, options?.signal),
       fetchJson<unknown[]>(`${BASE_API}/blocklist.json`, options?.signal),
+      fetchJson<RawLogo[]>(`${BASE_API}/logos.json`, options?.signal).catch(() => []),
     ]);
 
-  options?.onProgress?.('Indexando metadatos y listas de bloqueo...');
+  options?.onProgress?.('Indexando metadatos y logos oficiales...');
 
-  // 2. Build blocklist lookup set
+  // Build logo map (channelId -> logoUrl, preferring SVG)
+  const logoMap = new Map<string, string>();
+  if (Array.isArray(logosRaw)) {
+    for (const l of logosRaw) {
+      if (l && l.channel && l.url) {
+        if (!logoMap.has(l.channel) || l.format === 'SVG') {
+          logoMap.set(l.channel, l.url);
+        }
+      }
+    }
+  }
+
+  // Build blocklist lookup set
   const blocklistSet = new Set<string>();
   if (Array.isArray(blocklistRaw)) {
     for (const item of blocklistRaw) {
@@ -99,13 +118,11 @@ export async function buildCatalog(options?: {
     }
   }
 
-  // 3. Build country and region lookup maps
+  // Build country and region lookup maps
   const countryMap = new Map<string, Country>();
   if (Array.isArray(countriesRaw)) {
     for (const country of countriesRaw) {
-      if (country.code) {
-        countryMap.set(country.code.toUpperCase(), country);
-      }
+      if (country.code) countryMap.set(country.code.toUpperCase(), country);
     }
   }
 
@@ -120,9 +137,7 @@ export async function buildCatalog(options?: {
     }
   }
 
-  options?.onProgress?.('Agrupando y ordenando transmisiones...');
-
-  // 4. Map streams by channel and sort by quality (4k -> 1080p -> 720p -> ... -> unrated)
+  // Map streams by channel and sort by quality
   const streamsByChannel = new Map<string, CatalogStream[]>();
   const rawStreamsMap = new Map<string, RawStream[]>();
   let totalStreamsCount = 0;
@@ -131,19 +146,13 @@ export async function buildCatalog(options?: {
     for (const raw of streamsRaw) {
       if (!raw || !raw.channel || !raw.url) continue;
       if (blocklistSet.has(raw.url)) continue;
-      // Skip broken or error signals
-      if (raw.status === 'error' || raw.status === 'timeout' || raw.status === 'blocked') {
-        continue;
-      }
+      if (raw.status === 'error' || raw.status === 'timeout' || raw.status === 'blocked') continue;
 
       const rawList = rawStreamsMap.get(raw.channel) || [];
       rawList.push(raw);
       rawStreamsMap.set(raw.channel, rawList);
 
-      const quality =
-        raw.quality ||
-        (raw.height ? (raw.height >= 2160 ? '4K' : `${raw.height}p`) : null);
-
+      const quality = raw.quality || (raw.height ? (raw.height >= 2160 ? '4K' : `${raw.height}p`) : null);
       const catalogStream: CatalogStream = {
         url: raw.url,
         quality,
@@ -158,7 +167,6 @@ export async function buildCatalog(options?: {
     }
   }
 
-  // Sort each channel's streams by quality rank
   for (const streams of streamsByChannel.values()) {
     streams.sort((a, b) => getQualityRank(a.quality) - getQualityRank(b.quality));
     totalStreamsCount += streams.length;
@@ -166,14 +174,10 @@ export async function buildCatalog(options?: {
 
   options?.onProgress?.('Construyendo catálogo final de canales...');
 
-  // 5. Build CatalogChannel list
   const catalogChannels: CatalogChannel[] = [];
-
   if (Array.isArray(channelsRaw)) {
     for (const ch of channelsRaw) {
       if (!ch || !ch.id) continue;
-
-      // Discard criteria: is_nsfw, closed, replaced_by, blocklist, no streams
       if (ch.is_nsfw === true) continue;
       if (ch.closed !== null && ch.closed !== undefined && ch.closed !== '') continue;
       if (ch.replaced_by !== null && ch.replaced_by !== undefined && ch.replaced_by !== '') continue;
@@ -191,11 +195,10 @@ export async function buildCatalog(options?: {
       const categories = Array.isArray(ch.categories) ? ch.categories : [];
       const best_quality = streams[0]?.quality || null;
       const channelRawStreams = rawStreamsMap.get(ch.id) || [];
-      const {
-        primary_category,
-        secondary_categories,
-        subcategory,
-      } = resolveChannelCategories(ch, channelRawStreams);
+      const { primary_category, secondary_categories, subcategory } = resolveChannelCategories(ch, channelRawStreams);
+
+      // Attach official logo from logos.json or fallback
+      const resolvedLogo = ch.logo || logoMap.get(ch.id) || null;
 
       catalogChannels.push({
         id: ch.id,
@@ -214,7 +217,7 @@ export async function buildCatalog(options?: {
         primary_category,
         secondary_categories,
         subcategory,
-        logo: ch.logo || null,
+        logo: resolvedLogo,
         website: ch.website || null,
         primaryStreamUrl: streams[0]?.url,
         qualityLabel: best_quality || 'HD',
@@ -232,5 +235,6 @@ export async function buildCatalog(options?: {
   };
 
   catalogModuleCache = result;
+  saveCatalogToIndexedDb(result).catch(() => {});
   return result;
 }

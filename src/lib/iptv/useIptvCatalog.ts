@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildCatalog, getCachedCatalog } from './catalog.ts';
+import { loadCatalogFromIndexedDb } from './indexed-db.ts';
 import { CatalogResult } from './types.ts';
 
 export interface UseIptvCatalogState {
@@ -16,27 +17,37 @@ export interface UseIptvCatalogState {
   retry: () => void;
 }
 
-const BACKOFF_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s
+const BACKOFF_DELAYS = [1000, 2000, 4000];
 const MAX_ATTEMPTS = 3;
 
 export function useIptvCatalog(): UseIptvCatalogState {
   const [data, setData] = useState<CatalogResult | null>(() => getCachedCatalog());
   const [loading, setLoading] = useState<boolean>(() => !getCachedCatalog());
   const [error, setError] = useState<Error | null>(null);
-  const [progress, setProgress] = useState<string>('Iniciando carga del catálogo...');
+  const [progress, setProgress] = useState<string>('Comprobando caché de canales...');
   const [attempt, setAttempt] = useState<number>(1);
   const [retryTrigger, setRetryTrigger] = useState<number>(0);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadCatalog = useCallback(async () => {
-    // If cached in memory, return immediately
+    // 1. In-memory check
     const cached = getCachedCatalog();
     if (cached) {
       setData(cached);
       setLoading(false);
       setError(null);
       setProgress('Catálogo cargado desde memoria');
+      return;
+    }
+
+    // 2. High-speed IndexedDB cache check (< 30ms)
+    const dbCached = await loadCatalogFromIndexedDb();
+    if (dbCached && dbCached.channels.length > 0) {
+      setData(dbCached);
+      setLoading(false);
+      setError(null);
+      setProgress('Catálogo cargado desde almacenamiento local');
       return;
     }
 
@@ -53,7 +64,7 @@ export function useIptvCatalog(): UseIptvCatalogState {
         setProgress(
           currentAttempt > 1
             ? `Reintentando carga (${currentAttempt} de ${MAX_ATTEMPTS})...`
-            : 'Descargando datos de iptv-org...'
+            : 'Descargando canales y logos oficiales (iptv-org)...'
         );
 
         const result = await buildCatalog({
@@ -64,7 +75,7 @@ export function useIptvCatalog(): UseIptvCatalogState {
         setData(result);
         setLoading(false);
         setError(null);
-        setProgress('Catálogo cargado correctamente');
+        setProgress('Catálogo y logos sincronizados');
         return;
       } catch (err: unknown) {
         if (abortControllerRef.current?.signal.aborted) {
@@ -82,8 +93,7 @@ export function useIptvCatalog(): UseIptvCatalogState {
         }
 
         const delay = BACKOFF_DELAYS[currentAttempt - 1] || 4000;
-        setProgress(`Error de red. Reintentando en ${delay / 1000}s (intento ${currentAttempt} de ${MAX_ATTEMPTS})...`);
-
+        setProgress(`Reintentando en ${delay / 1000}s (intento ${currentAttempt} de ${MAX_ATTEMPTS})...`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         currentAttempt += 1;
       }

@@ -64,6 +64,14 @@ export interface BlocklistItem {
   reason?: string;
 }
 
+export interface RawLogo {
+  channel: string;
+  url: string;
+  format?: string;
+  width?: number;
+  height?: number;
+}
+
 // --- Processed Catalog Final Types ---
 
 export interface CatalogStream {

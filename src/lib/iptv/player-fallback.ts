@@ -17,8 +17,7 @@ export type ErrorKind =
   | 'mixed_content';
 
 /**
- * Watchdog timeout in ms:
- * 8 s with proxy, 5 s without proxy. As there is no proxy in this applet, uses 8 s per attempt.
+ * Watchdog timeout in ms: 8000ms per attempt.
  */
 export function watchdogMs(hasProxy = false): number {
   return hasProxy ? 8000 : 8000;
@@ -45,56 +44,57 @@ export function nextFallback(
 export function classifyError(kind: ErrorKind, detail?: string): string {
   switch (kind) {
     case 'timeout':
-      return 'Tiempo de espera agotado (8 s). La señal no responde. Probando siguiente fuente…';
+      return 'Tiempo de espera agotado (8 s). La señal de origen no responde al flujo de datos.';
 
     case 'cors':
-      return 'El stream bloquea el acceso desde navegadores web (CORS). Sin un servidor proxy intermediario no puede reproducirse en el cliente.';
+      return 'Señal con restricción de origen cruzado (CORS). Requiere túnel proxy para reproducir en navegador.';
 
     case 'mixed_content':
-      return 'Bloqueado por seguridad del navegador: no se permite cargar contenido HTTP no seguro en una aplicación HTTPS.';
+      return 'Señal HTTP no cifrada. Se transmite mediante túnel proxy SSL seguro.';
 
     case 'geo':
-      return 'Emisión bloqueada en tu región geográfica por restricciones territoriales del emisor.';
+      return 'Emisión con bloqueo geográfico territorial (HTTP 403). La emisora restringe el acceso a su país de origen.';
 
     case 'offline':
-      return 'La señal de transmisión está temporalmente fuera del aire o en pausa técnica.';
+      return 'Servidor de transmisión fuera del aire o en pausa técnica por mantenimiento (HTTP 502/503).';
 
     case 'format':
-      return 'Formato de video o códec de audio/video no soportado por este navegador.';
+      return 'Códec de audio/video o perfil de transporte no soportado por este navegador.';
 
     case 'dead':
-      return 'Fuente de transmisión caída o enlace no encontrado (HTTP 404 / 500).';
+      return 'Fuente de transmisión caída o enlace caducado por el proveedor de contenido (HTTP 404 / Inactivo).';
 
     case 'auth':
-      return 'La transmisión requiere autenticación o el token de acceso ha expirado.';
+      return 'La transmisión requiere autenticación o token de acceso con clave privada.';
 
     case 'not_media':
-      return 'La respuesta del servidor remoto no corresponde a un flujo de video válido.';
+      return 'La respuesta del servidor no corresponde a un flujo de video o lista HLS válida.';
 
     case 'blocked':
-      return 'Transmisión bloqueada por el proveedor del contenido o políticas de red.';
+      return 'Transmisión bloqueada por el proveedor o políticas de red del emisor.';
 
     case 'unknown':
     default:
-      return detail || 'Error inesperado al intentar reproducir la transmisión.';
+      return detail || 'No se pudo establecer conexión con la transmisión.';
   }
 }
 
 /**
  * Heuristically detects ErrorKind from HLS/video/network errors.
  */
-export function detectErrorKind(error: unknown, streamUrl?: string): ErrorKind {
+export function detectErrorKind(error: unknown, streamUrl?: string, isProxy = false): ErrorKind {
   if (
     typeof window !== 'undefined' &&
     window.location.protocol === 'https:' &&
-    streamUrl?.startsWith('http://')
+    streamUrl?.startsWith('http://') &&
+    !isProxy
   ) {
     return 'mixed_content';
   }
 
   if (typeof error === 'object' && error !== null) {
     const err = error as {
-      response?: { status?: number };
+      response?: { code?: number; status?: number; text?: string };
       status?: number;
       code?: number;
       type?: string;
@@ -102,14 +102,15 @@ export function detectErrorKind(error: unknown, streamUrl?: string): ErrorKind {
       message?: string;
     };
 
-    const status = err.response?.status || err.status;
+    const status = err.response?.code || err.response?.status || err.status || err.code;
     if (status === 403) return 'geo';
     if (status === 401) return 'auth';
     if (status === 404 || status === 410) return 'dead';
     if (status === 502 || status === 503) return 'offline';
+    if (status === 504) return 'timeout';
 
     const msg = (err.message || err.details || '').toLowerCase();
-    if (msg.includes('cors') || msg.includes('network error') || msg.includes('access-control-allow-origin')) {
+    if (msg.includes('cors') || msg.includes('access-control-allow-origin')) {
       return 'cors';
     }
     if (msg.includes('timeout') || msg.includes('timed out')) {
@@ -117,6 +118,9 @@ export function detectErrorKind(error: unknown, streamUrl?: string): ErrorKind {
     }
     if (msg.includes('format') || msg.includes('manifest') || msg.includes('demux')) {
       return 'format';
+    }
+    if (status === 0 || msg.includes('network error') || msg.includes('failed to fetch')) {
+      return isProxy ? 'dead' : 'cors';
     }
   }
 

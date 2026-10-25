@@ -25,10 +25,21 @@ export function getHealthRank(status?: string | null): number {
 
 /**
  * Pure function to order streams by health: live -> degraded -> unknown -> geo -> dead.
+ * Prioritizes HTTPS over HTTP on HTTPS environments to maximize direct playback.
  */
 export function orderStreamsByHealth(streams: CatalogStream[]): CatalogStream[] {
   const copy = [...streams];
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+
   return copy.sort((a, b) => {
+    // Primary: Protocol preference if on HTTPS (HTTPS direct streams first)
+    if (isHttps) {
+      const aIsHttp = (a.url || '').toLowerCase().startsWith('http://');
+      const bIsHttp = (b.url || '').toLowerCase().startsWith('http://');
+      if (aIsHttp !== bIsHttp) return aIsHttp ? 1 : -1;
+    }
+
+    // Secondary: Health status rank
     const rankA = getHealthRank(a.status);
     const rankB = getHealthRank(b.status);
     return rankA - rankB;
@@ -36,7 +47,7 @@ export function orderStreamsByHealth(streams: CatalogStream[]): CatalogStream[] 
 }
 
 /**
- * Checks if a stream URL would trigger browser Mixed Content blocking on HTTPS.
+ * Checks if a stream URL is HTTP while running in HTTPS.
  */
 export function isMixedContent(url?: string | null): boolean {
   if (!url) return false;
@@ -45,27 +56,23 @@ export function isMixedContent(url?: string | null): boolean {
 }
 
 /**
- * Filters out mixed content HTTP streams on HTTPS and caps at MAX_STREAMS_PER_CHANNEL.
+ * Prepares streams up to MAX_STREAMS_PER_CHANNEL.
+ * Keeps HTTP streams accessible through the secure proxy relay.
  */
 export function filterAndPrepareStreams(streams: CatalogStream[]): {
   usable: CatalogStream[];
   discardedMixedContentCount: number;
 } {
   const ordered = orderStreamsByHealth(streams);
-
   const usable: CatalogStream[] = [];
-  let discardedMixedContentCount = 0;
 
   for (const s of ordered) {
-    if (isMixedContent(s.url)) {
-      discardedMixedContentCount += 1;
-      continue;
-    }
+    if (!s || !s.url) continue;
     usable.push(s);
     if (usable.length >= MAX_STREAMS_PER_CHANNEL) break;
   }
 
-  return { usable, discardedMixedContentCount };
+  return { usable, discardedMixedContentCount: 0 };
 }
 
 /**

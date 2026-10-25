@@ -19,6 +19,7 @@ import { useIptvCatalog } from './lib/iptv/useIptvCatalog.ts';
 import { useNavigation } from './lib/iptv/useNavigation.ts';
 import { useCustomChannels, useFavorites, useSettings } from './lib/iptv/useStorage.ts';
 import { useTheme } from './lib/iptv/useTheme.ts';
+import { CURATED_CHANNELS } from './lib/iptv/curated.ts';
 
 // Lazy-loaded CommandPalette (⌘K / Ctrl+K)
 const CommandPalette = React.lazy(() => import('./components/search/CommandPalette.tsx'));
@@ -51,9 +52,11 @@ export default function App() {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isMiniClosed, setIsMiniClosed] = useState(false);
 
-  // Combine fetched catalog with custom channels
+  // Combine fetched catalog with curated channels fallback
   const allChannels = useMemo(() => {
-    if (!data) return customChannels;
+    if (!data || data.channels.length === 0) {
+      return customChannels.length > 0 ? [...customChannels, ...CURATED_CHANNELS] : CURATED_CHANNELS;
+    }
     return [...customChannels, ...data.channels];
   }, [data, customChannels]);
 
@@ -102,8 +105,19 @@ export default function App() {
 
       {/* Main View Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-8">
-        {/* Loading State with Skeletons */}
-        {loading && (
+        {/* Background sync indicator when channels are already available */}
+        {loading && allChannels.length > 0 && (
+          <div className="flex items-center justify-between px-3.5 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-[#94a3b8]">
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{progress}</span>
+            </span>
+            <span className="text-[11px] font-mono text-emerald-400">Segundo plano</span>
+          </div>
+        )}
+
+        {/* Blocking Loading State only on empty cold start */}
+        {loading && allChannels.length === 0 && (
           <div className="flex flex-col gap-6">
             <div className="p-6 rounded-3xl bg-[#111c2f] border border-[#1e293b]">
               <h1 className="text-2xl font-black text-[#e2e8f0]">IPTV Studio Hub</h1>
@@ -113,8 +127,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Error State */}
-        {error && !loading && (
+        {/* Error State only if zero channels available */}
+        {error && allChannels.length === 0 && (
           <div className="flex flex-col items-center justify-center p-12 text-center bg-[#111c2f] border border-red-500/30 rounded-3xl">
             <h2 className="text-lg font-bold text-white mb-2">Error al cargar el catálogo</h2>
             <p className="text-xs text-[#94a3b8] max-w-md mb-6">{error.message}</p>
@@ -129,7 +143,7 @@ export default function App() {
         )}
 
         {/* Loaded Views */}
-        {!loading && !error && (
+        {allChannels.length > 0 && (
           <>
             {/* View: Watch (Full view) */}
             {view === 'watch' && (
