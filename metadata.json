@@ -1,0 +1,6 @@
+{
+  "name": "IPTV Studio Hub",
+  "description": "Reproductor web de canales de TV en vivo con datos de iptv-org, filtros por país y categoría, favoritos y reproducción HLS fluida.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
