@@ -4,9 +4,58 @@
  */
 
 const STORAGE_PREFIX = 'iptv:stream-proxy:';
+const CUSTOM_PROXY_KEY = 'iptv:custom-proxy-relay';
+
+let backendHealthCache: { ok: boolean; timestamp: number } | null = null;
 
 /**
- * Encodes a remote media URL into the local stream-proxy endpoint,
+ * Checks if the local/Vercel backend proxy (/api/health) is operational.
+ */
+export async function isBackendProxyAvailable(): Promise<boolean> {
+  if (backendHealthCache && Date.now() - backendHealthCache.timestamp < 30000) {
+    return backendHealthCache.ok;
+  }
+  try {
+    const res = await fetch('/api/health', { method: 'GET' });
+    const isOk = res.ok;
+    backendHealthCache = { ok: isOk, timestamp: Date.now() };
+    return isOk;
+  } catch {
+    backendHealthCache = { ok: false, timestamp: Date.now() };
+    return false;
+  }
+}
+
+/**
+ * Gets custom user-defined proxy endpoint if configured.
+ */
+export function getCustomProxyUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(CUSTOM_PROXY_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persists a custom user-defined proxy endpoint (e.g. Cloudflare Worker / VPS).
+ */
+export function setCustomProxyUrl(url: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (url && url.trim()) {
+      window.localStorage.setItem(CUSTOM_PROXY_KEY, url.trim());
+    } else {
+      window.localStorage.removeItem(CUSTOM_PROXY_KEY);
+    }
+  } catch {
+    // Ignore storage quota
+  }
+}
+
+/**
+ * Encodes a remote media URL into the stream-proxy endpoint,
  * optionally forwarding custom Referer and User-Agent headers.
  */
 export function getProxiedStreamUrl(
@@ -18,6 +67,14 @@ export function getProxiedStreamUrl(
   if (originalUrl.startsWith('/api/stream-proxy')) {
     return originalUrl;
   }
+
+  const customProxy = getCustomProxyUrl();
+  if (customProxy) {
+    return customProxy.includes('?')
+      ? `${customProxy}&url=${encodeURIComponent(originalUrl)}`
+      : `${customProxy}?url=${encodeURIComponent(originalUrl)}`;
+  }
+
   let proxyPath = `/api/stream-proxy?url=${encodeURIComponent(originalUrl)}`;
   if (referrer) {
     proxyPath += `&ref=${encodeURIComponent(referrer)}`;
@@ -87,7 +144,6 @@ export async function probeStreamQuick(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  // 1. Try direct probe if not mixed content
   const isMixed = typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://');
 
   if (!isMixed) {
@@ -107,7 +163,6 @@ export async function probeStreamQuick(
     }
   }
 
-  // 2. Try proxy probe
   try {
     const proxyRes = await fetch(getProxiedStreamUrl(url, referrer), {
       method: 'GET',
