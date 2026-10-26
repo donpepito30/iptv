@@ -4,6 +4,7 @@
  */
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import { AdultView } from './components/adult/AdultView.tsx';
 import { CatalogSkeleton } from './components/catalog/CatalogSkeleton.tsx';
 import { CategoriesView } from './components/categories/CategoriesView.tsx';
 import { CustomStreamModal } from './components/channel/CustomStreamModal.tsx';
@@ -12,6 +13,7 @@ import { BrowseView } from './components/home/BrowseView.tsx';
 import { Header } from './components/layout/Header.tsx';
 import { ShortcutsModal } from './components/layout/ShortcutsModal.tsx';
 import { WatchView } from './components/player/WatchView.tsx';
+import { CURATED_CHANNELS } from './lib/iptv/curated.ts';
 import { useLocale } from './lib/iptv/i18n.ts';
 import { CatalogChannel } from './lib/iptv/types.ts';
 import { useHistory } from './lib/iptv/useHistory.ts';
@@ -19,7 +21,6 @@ import { useIptvCatalog } from './lib/iptv/useIptvCatalog.ts';
 import { useNavigation } from './lib/iptv/useNavigation.ts';
 import { useCustomChannels, useFavorites, useSettings } from './lib/iptv/useStorage.ts';
 import { useTheme } from './lib/iptv/useTheme.ts';
-import { CURATED_CHANNELS } from './lib/iptv/curated.ts';
 
 // Lazy-loaded CommandPalette (⌘K / Ctrl+K)
 const CommandPalette = React.lazy(() => import('./components/search/CommandPalette.tsx'));
@@ -32,7 +33,6 @@ export default function App() {
   const { addToHistory } = useHistory();
   const { customChannels, addCustomChannel } = useCustomChannels();
 
-  // Navigation with URL hash sync (#watch=ID)
   const {
     view,
     channelId,
@@ -44,15 +44,13 @@ export default function App() {
     toggleSearch,
   } = useNavigation();
 
-  // Load catalog
   const { data, loading, error, progress, retry } = useIptvCatalog();
 
-  // Modals & MiniPlayer states
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isMiniClosed, setIsMiniClosed] = useState(false);
+  const [activeAdultChannel, setActiveAdultChannel] = useState<CatalogChannel | null>(null);
 
-  // Combine fetched catalog with curated channels fallback
   const allChannels = useMemo(() => {
     if (!data || data.channels.length === 0) {
       return customChannels.length > 0 ? [...customChannels, ...CURATED_CHANNELS] : CURATED_CHANNELS;
@@ -60,16 +58,21 @@ export default function App() {
     return [...customChannels, ...data.channels];
   }, [data, customChannels]);
 
-  // Set of favorite IDs
+  const watchAllChannels = useMemo(() => {
+    if (activeAdultChannel) return [activeAdultChannel, ...allChannels];
+    return allChannels;
+  }, [activeAdultChannel, allChannels]);
+
   const favoriteIdsSet = useMemo(() => new Set(favorites), [favorites]);
 
-  // Active channel for watch mode
   const currentWatchChannel = useMemo(() => {
     if (!channelId) return allChannels[0] || null;
-    return allChannels.find((c) => c.id === channelId) || allChannels[0] || null;
-  }, [channelId, allChannels]);
+    if (channelId.startsWith('adult-')) {
+      if (activeAdultChannel && activeAdultChannel.id === channelId) return activeAdultChannel;
+    }
+    return allChannels.find((c) => c.id === channelId) || activeAdultChannel || allChannels[0] || null;
+  }, [channelId, allChannels, activeAdultChannel]);
 
-  // Record to history whenever channel is selected for watch
   useEffect(() => {
     if (view === 'watch' && currentWatchChannel) {
       addToHistory(currentWatchChannel.id);
@@ -78,6 +81,9 @@ export default function App() {
   }, [view, currentWatchChannel?.id, addToHistory]);
 
   const handleSelectChannel = (channel: CatalogChannel) => {
+    if (channel.id.startsWith('adult-')) {
+      setActiveAdultChannel(channel);
+    }
     setIsMiniClosed(false);
     watchChannel(channel.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -91,7 +97,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans transition-colors duration-300">
-      {/* Sticky Top Header */}
       <Header
         language={locale}
         theme={theme}
@@ -103,9 +108,7 @@ export default function App() {
         onOpenCustomModal={() => setIsCustomModalOpen(true)}
       />
 
-      {/* Main View Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex flex-col gap-8">
-        {/* Background sync indicator when channels are already available */}
         {loading && allChannels.length > 0 && (
           <div className="flex items-center justify-between px-3.5 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-[#94a3b8]">
             <span className="flex items-center gap-2">
@@ -116,7 +119,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Blocking Loading State only on empty cold start */}
         {loading && allChannels.length === 0 && (
           <div className="flex flex-col gap-6">
             <div className="p-6 rounded-3xl bg-[#111c2f] border border-[#1e293b]">
@@ -127,7 +129,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Error State only if zero channels available */}
         {error && allChannels.length === 0 && (
           <div className="flex flex-col items-center justify-center p-12 text-center bg-[#111c2f] border border-red-500/30 rounded-3xl">
             <h2 className="text-lg font-bold text-white mb-2">Error al cargar el catálogo</h2>
@@ -142,46 +143,40 @@ export default function App() {
           </div>
         )}
 
-        {/* Loaded Views */}
         {allChannels.length > 0 && (
           <>
-            {/* View: Watch (Full view) */}
             {view === 'watch' && (
               <WatchView
                 channel={currentWatchChannel}
-                allChannels={allChannels}
+                allChannels={watchAllChannels}
                 settings={settings}
-                isFavorite={
-                  currentWatchChannel ? favoriteIdsSet.has(currentWatchChannel.id) : false
-                }
+                isFavorite={currentWatchChannel ? favoriteIdsSet.has(currentWatchChannel.id) : false}
                 favoriteIds={favoriteIdsSet}
                 onUpdateSettings={updateSettings}
                 onToggleFavorite={toggleFavorite}
                 onSelectChannel={handleSelectChannel}
-                onBack={() => goToView('browse')}
+                onBack={() => (currentWatchChannel?.id.startsWith('adult-') ? goToView('adult') : goToView('browse'))}
                 isMini={false}
               />
             )}
 
-            {/* Persistent Floating MiniPlayer when outside watch view */}
             {view !== 'watch' && currentWatchChannel && !isMiniClosed && (
               <WatchView
                 channel={currentWatchChannel}
-                allChannels={allChannels}
+                allChannels={watchAllChannels}
                 settings={settings}
                 isFavorite={favoriteIdsSet.has(currentWatchChannel.id)}
                 favoriteIds={favoriteIdsSet}
                 onUpdateSettings={updateSettings}
                 onToggleFavorite={toggleFavorite}
                 onSelectChannel={handleSelectChannel}
-                onBack={() => goToView('browse')}
+                onBack={() => (currentWatchChannel?.id.startsWith('adult-') ? goToView('adult') : goToView('browse'))}
                 isMini={true}
                 onExpand={() => goToView('watch')}
                 onCloseMini={() => setIsMiniClosed(true)}
               />
             )}
 
-            {/* View: Browse */}
             {view === 'browse' && (
               <BrowseView
                 channels={allChannels}
@@ -194,7 +189,6 @@ export default function App() {
               />
             )}
 
-            {/* View: Categories */}
             {view === 'categories' && (
               <CategoriesView
                 channels={allChannels}
@@ -207,7 +201,6 @@ export default function App() {
               />
             )}
 
-            {/* View: Guide */}
             {view === 'guide' && (
               <GuideView
                 channels={allChannels}
@@ -215,11 +208,18 @@ export default function App() {
                 onSelectChannel={handleSelectChannel}
               />
             )}
+
+            {view === 'adult' && (
+              <AdultView
+                activeChannelId={currentWatchChannel?.id}
+                onSelectChannel={handleSelectChannel}
+                onExit={() => goToView('browse')}
+              />
+            )}
           </>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="mt-auto border-t border-[#1e293b] py-6 text-center text-xs text-[#94a3b8]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p>© {new Date().getFullYear()} IPTV Studio Hub · Canales en vivo de iptv-org</p>
@@ -238,11 +238,17 @@ export default function App() {
             >
               Guía de canales
             </button>
+            <button
+              type="button"
+              onClick={() => goToView('adult')}
+              className="text-rose-400 hover:text-rose-300 font-semibold transition-colors cursor-pointer"
+            >
+              Zona +18
+            </button>
           </div>
         </div>
       </footer>
 
-      {/* Lazy-Loaded CommandPalette (⌘K / Ctrl+K) */}
       <Suspense fallback={null}>
         {isSearchOpen && (
           <CommandPalette
@@ -254,7 +260,6 @@ export default function App() {
         )}
       </Suspense>
 
-      {/* Custom Stream Modal */}
       <CustomStreamModal
         isOpen={isCustomModalOpen}
         language={locale}
@@ -262,7 +267,6 @@ export default function App() {
         onAddChannel={handleAddCustomChannel}
       />
 
-      {/* Keyboard Shortcuts Modal */}
       <ShortcutsModal
         isOpen={isShortcutsModalOpen}
         language={locale}

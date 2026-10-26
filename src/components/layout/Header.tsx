@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Calendar, Compass, Moon, Plus, Search, Sun, Tv } from 'lucide-react';
+import { Calendar, Compass, Flame, Moon, Plus, Search, Sun, Tv } from 'lucide-react';
 import React, { useState } from 'react';
 import { t } from '../../lib/iptv/i18n.ts';
 import { AppLanguage, AppTheme } from '../../lib/iptv/types.ts';
@@ -82,6 +82,20 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Calendar className="w-3.5 h-3.5" />
             <span>{t(language, 'navGuide')}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('adult')}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition-all whitespace-nowrap cursor-pointer ${
+              currentView === 'adult'
+                ? 'text-rose-400 font-bold bg-rose-500/15 border-rose-500/40 shadow-xs shadow-rose-500/20'
+                : 'text-rose-400/80 border-rose-900/40 hover:text-rose-300 hover:border-rose-500/40 hover:bg-rose-950/30'
+            }`}
+            title="Sección privada +18 (Verificación requerida)"
+          >
+            <Flame className="w-3.5 h-3.5 text-rose-400" />
+            <span>Zona +18</span>
           </button>
         </nav>
 
@@ -205,6 +219,16 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Calendar className="w-3.5 h-3.5" />
           <span>{t(language, 'navGuide')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('adult')}
+          className={`flex items-center gap-1 py-1 px-2.5 rounded-lg transition-colors ${
+            currentView === 'adult' ? 'text-rose-400 font-bold bg-rose-500/15' : 'text-rose-400/80'
+          }`}
+        >
+          <Flame className="w-3.5 h-3.5" />
+          <span>+18</span>
         </button>
       </div>
     </header>

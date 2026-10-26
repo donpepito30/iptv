@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useReducer } from 'react';
 
-export type AppView = 'browse' | 'watch' | 'guide' | 'categories' | 'detail';
+export type AppView = 'browse' | 'watch' | 'guide' | 'categories' | 'detail' | 'adult';
 
 export interface NavigationState {
   view: AppView;
@@ -42,6 +42,9 @@ function parseHash(): { view: AppView; channelId: string | null; categoryId: str
   }
   if (key === 'categories') {
     return { view: 'categories', channelId: null, categoryId: null };
+  }
+  if (key === 'adult') {
+    return { view: 'adult', channelId: null, categoryId: null };
   }
 
   return { view: 'browse', channelId: null, categoryId: null };
@@ -121,6 +124,10 @@ export function useNavigation() {
       if (window.location.hash !== '#guide') {
         window.history.pushState(null, '', '#guide');
       }
+    } else if (state.view === 'adult') {
+      if (window.location.hash !== '#adult') {
+        window.history.pushState(null, '', '#adult');
+      }
     } else if (state.view === 'browse') {
       if (window.location.hash && window.location.hash !== '#browse') {
         window.history.pushState(null, '', window.location.pathname + window.location.search);
@@ -144,6 +151,8 @@ export function useNavigation() {
         }
       } else if (parsed.view === 'guide') {
         dispatch({ type: 'GO_TO_VIEW', view: 'guide' });
+      } else if (parsed.view === 'adult') {
+        dispatch({ type: 'GO_TO_VIEW', view: 'adult' });
       } else {
         dispatch({ type: 'GO_TO_VIEW', view: 'browse' });
       }
