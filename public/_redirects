@@ -1,0 +1,2 @@
+# Cloudflare Pages SPA rewrite: route all client paths to index.html with 200 OK
+/*    /index.html   200
