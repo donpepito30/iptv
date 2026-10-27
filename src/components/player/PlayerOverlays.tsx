@@ -41,9 +41,13 @@ export interface PlayerErrorOverlayProps {
   errorKind?: ErrorKind | null;
   usableStreams: CatalogStream[];
   currentStreamIndex: number;
+  hasEmbedUrl?: boolean;
+  categoryLabel?: string;
+  autoplayNext?: boolean;
   onSwitchStream: (index: number) => void;
   onRetry: () => void;
   onRetryWithProxy?: () => void;
+  onSwitchToEmbed?: () => void;
   onNextChannel?: () => void;
 }
 
@@ -52,11 +56,28 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
   errorKind,
   usableStreams,
   currentStreamIndex,
+  hasEmbedUrl,
+  categoryLabel,
+  autoplayNext = true,
   onSwitchStream,
   onRetry,
   onRetryWithProxy,
+  onSwitchToEmbed,
   onNextChannel,
 }) => {
+  const [countdown, setCountdown] = React.useState<number | null>(() => (autoplayNext && onNextChannel ? 5 : null));
+
+  React.useEffect(() => {
+    if (countdown === null || !onNextChannel) return;
+    if (countdown <= 0) {
+      onNextChannel();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCountdown((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, onNextChannel]);
   const getBadgeLabel = () => {
     switch (errorKind) {
       case 'geo':
@@ -115,11 +136,31 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
         </div>
       )}
 
+      {/* Auto-advance countdown notice */}
+      {countdown !== null && onNextChannel && (
+        <div className="mb-4 px-3.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-2 justify-center animate-pulse">
+          <span>
+            Avanzando automáticamente al siguiente canal {categoryLabel ? `en "${categoryLabel}"` : ''} en{' '}
+            <strong className="font-mono text-amber-200">{countdown}s</strong>...
+          </span>
+          <button
+            type="button"
+            onClick={() => setCountdown(null)}
+            className="underline hover:text-white font-semibold ml-1 cursor-pointer"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex items-center gap-2.5 flex-wrap justify-center">
         <button
           type="button"
-          onClick={onRetry}
+          onClick={() => {
+            setCountdown(null);
+            onRetry();
+          }}
           className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
@@ -129,11 +170,27 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
         {onRetryWithProxy && (
           <button
             type="button"
-            onClick={onRetryWithProxy}
+            onClick={() => {
+              setCountdown(null);
+              onRetryWithProxy();
+            }}
             className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Forzar Proxy Relay</span>
+          </button>
+        )}
+
+        {hasEmbedUrl && onSwitchToEmbed && (
+          <button
+            type="button"
+            onClick={() => {
+              setCountdown(null);
+              onSwitchToEmbed();
+            }}
+            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-lg shadow-rose-950/50"
+          >
+            <span>Modo Oficial Embebido</span>
           </button>
         )}
 
@@ -143,7 +200,9 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
             onClick={onNextChannel}
             className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <span>Siguiente Canal</span>
+            <span>
+              {categoryLabel ? `Siguiente (${categoryLabel})` : 'Siguiente Canal'}
+            </span>
             <SkipForward className="w-3.5 h-3.5" />
           </button>
         )}

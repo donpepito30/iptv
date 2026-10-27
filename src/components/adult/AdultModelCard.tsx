@@ -18,14 +18,15 @@ export const AdultModelCard: React.FC<AdultModelCardProps> = ({
   isActive = false,
   onSelect,
 }) => {
-  // Snapshot fallback: 0 = original, 1 = proxied, 2 = failed
+  // Snapshot fallback: 0 = original snapshot, 1 = proxied snapshot, 2 = original avatar, 3 = proxied avatar, 4 = none
   const [snapshotState, setSnapshotState] = useState<number>(0);
   const [avatarState, setAvatarState] = useState<number>(0);
 
   const getSnapshotSrc = () => {
-    if (!model.snapshotUrl) return null;
-    if (snapshotState === 0) return model.snapshotUrl;
-    if (snapshotState === 1) return `/api/image-proxy?url=${encodeURIComponent(model.snapshotUrl)}`;
+    if (snapshotState === 0 && model.snapshotUrl) return model.snapshotUrl;
+    if (snapshotState === 1 && model.snapshotUrl) return `/api/image-proxy?url=${encodeURIComponent(model.snapshotUrl)}`;
+    if (snapshotState === 2 && model.avatarUrl) return model.avatarUrl;
+    if (snapshotState === 3 && model.avatarUrl) return `/api/image-proxy?url=${encodeURIComponent(model.avatarUrl)}`;
     return null;
   };
 

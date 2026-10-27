@@ -7,7 +7,7 @@ import { CatalogStream } from './types.ts';
 
 export const MAX_STREAMS_PER_CHANNEL = 5;
 
-export type StreamEngineMethod = 'hls' | 'dash' | 'native';
+export type StreamEngineMethod = 'hls' | 'dash' | 'native' | 'direct';
 
 /**
  * Health ranking: live (1) -> degraded (2) -> unknown (3) -> geo (4) -> dead (5).

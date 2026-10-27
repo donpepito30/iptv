@@ -80,15 +80,24 @@ export async function onRequest(context: { request: Request }): Promise<Response
     });
   }
 
+  const effectiveReferer =
+    customRef ||
+    (targetUrl.includes('saawsedge.com') ||
+    targetUrl.includes('strpst.com') ||
+    targetUrl.includes('doppicdn.com') ||
+    targetUrl.includes('stripchat')
+      ? 'https://stripchat.com/'
+      : null);
+
   const upstreamHeaders: Record<string, string> = {
     'User-Agent': customUa || DEFAULT_USER_AGENT,
     Accept: '*/*',
   };
 
-  if (customRef) {
-    upstreamHeaders['Referer'] = customRef;
+  if (effectiveReferer) {
+    upstreamHeaders['Referer'] = effectiveReferer;
     try {
-      upstreamHeaders['Origin'] = new URL(customRef).origin;
+      upstreamHeaders['Origin'] = new URL(effectiveReferer).origin;
     } catch {
       // Ignore invalid URL
     }
@@ -132,7 +141,8 @@ export async function onRequest(context: { request: Request }): Promise<Response
 
     if (isM3u8) {
       const text = await upstreamRes.text();
-      const rewritten = rewriteM3u8Content(text, targetUrl, customRef, customUa);
+      const finalBaseUrl = upstreamRes.url || targetUrl;
+      const rewritten = rewriteM3u8Content(text, finalBaseUrl, effectiveReferer, customUa);
       responseHeaders.set('Content-Type', 'application/vnd.apple.mpegurl');
       return new Response(rewritten, {
         status: 200,

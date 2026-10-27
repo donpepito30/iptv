@@ -27,11 +27,21 @@ export async function onRequest(context: { request: Request }): Promise<Response
   }
 
   try {
+    const imgHeaders: Record<string, string> = {
+      'User-Agent': DEFAULT_USER_AGENT,
+      Accept: 'image/*,*/*',
+    };
+    if (
+      targetUrl.includes('strpst.com') ||
+      targetUrl.includes('doppicdn.com') ||
+      targetUrl.includes('saawsedge.com') ||
+      targetUrl.includes('stripchat')
+    ) {
+      imgHeaders['Referer'] = 'https://stripchat.com/';
+    }
+
     const upstreamRes = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': DEFAULT_USER_AGENT,
-        Accept: 'image/*,*/*',
-      },
+      headers: imgHeaders,
     });
 
     if (!upstreamRes.ok) {

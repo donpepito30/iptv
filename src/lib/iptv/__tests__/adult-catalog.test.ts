@@ -17,58 +17,82 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-console.log('Running adult catalog unit tests...');
+console.log('Running adult catalog unit tests with updated 2redex69_models attachment...');
 
 // Test 1: normalizeAdultModel with basic raw object
 const sampleRaw: AdultModelRaw = {
-  id: 97970164,
-  username: 'alicee16',
-  displayName: 'Alice Star',
+  id: '72250054',
+  username: 'roouse',
+  displayName: 'roouse',
   avatarUrl: 'https://static-proxy.strpst.com/avatars/test.jpg',
   snapshotUrl: 'https://img.doppiocdn.com/thumbs/test.jpg',
-  streamUrl: 'https://edge-hls.saawsedge.com/hls/97970164/master/97970164_480p.m3u8',
-  viewersCount: 828,
-  modelsCountry: 'co',
-  languages: ['es'],
-  broadcastHD: true,
+  videoUrl: 'https://edge-hls.saawsedge.com/hls/72250054/master/72250054_480p.m3u8',
+  streamUrls: {
+    '480p': 'https://edge-hls.saawsedge.com/hls/72250054/master/72250054_480p.m3u8',
+    '240p': 'https://edge-hls.saawsedge.com/hls/72250054/master/72250054_240p.m3u8',
+  },
+  iframeEmbedUrl: 'https://stripchat.com/embed/roouse',
+  viewersCount: 9862,
+  country: 'co',
+  languages: ['en', 'es'],
+  isHd: true,
   isLive: true,
   age: 18,
 };
 
 const normalized = normalizeAdultModel(sampleRaw);
-assert(normalized.id === 97970164, 'Model ID should be preserved');
-assert(normalized.channelId === 'adult-97970164', 'Channel ID should have adult- prefix');
-assert(normalized.countryCode === 'CO', 'Country code should be uppercase');
-assert(normalized.countryName === 'Colombia', 'Country name should resolve to Colombia');
-assert(normalized.isHD === true, 'isHD should be true');
-assert(normalized.viewersCount === 828, 'viewers count matches');
+assert(normalized.id === '72250054', 'Model ID preserved');
+assert(normalized.channelId === 'adult-72250054', 'Channel ID prefix matches');
+assert(normalized.countryCode === 'CO', 'Country code is uppercase');
+assert(normalized.countryName === 'Colombia', 'Country name resolves to Colombia');
+assert(normalized.isHD === true, 'isHD is true');
+assert(normalized.viewersCount === 9862, 'viewers count matches');
+assert(normalized.embedUrl === 'https://stripchat.com/embed/roouse', 'embedUrl matches');
 
-// Test 2: transformModelToCatalogChannel
+// Test 2: transformModelToCatalogChannel generates multi-quality streams
 const catalogChannel = transformModelToCatalogChannel(normalized);
-assert(catalogChannel.id === 'adult-97970164', 'Catalog channel ID matches');
+assert(catalogChannel.id === 'adult-72250054', 'Catalog channel ID matches');
 assert(catalogChannel.primary_category === 'adult', 'Primary category should be adult');
 assert(catalogChannel.categories.includes('adult'), 'Categories includes adult');
-assert(catalogChannel.streams.length === 1, 'Stream attached');
-assert(catalogChannel.streams[0].url === sampleRaw.streamUrl, 'Stream URL preserved');
-assert(catalogChannel.primaryStreamUrl === sampleRaw.streamUrl, 'Primary stream URL matches');
+assert(catalogChannel.streams.length >= 2, 'Primary and backup 240p streams attached');
+assert(catalogChannel.streams[0].url === sampleRaw.videoUrl, 'Primary stream URL matches');
+assert(catalogChannel.streams[0].referrer === 'https://stripchat.com/', 'Smart Referer set on stream');
+assert(catalogChannel.embedUrl === 'https://stripchat.com/embed/roouse', 'embedUrl attached to channel');
 
-// Test 3: Load attached JSON file and verify all 50 models
-const jsonPath = path.resolve('public/assets/aistudio/2redex69_50_modelos_variadas_2026-10-26_6eec6bcf.json');
-assert(fs.existsSync(jsonPath), 'JSON attachment file must exist');
+// Test 3: Load new attached JSON file (300 models)
+const newJsonPath = path.resolve('public/assets/aistudio/2redex69_models_2026-10-27__1___1__8193a58f.json');
+assert(fs.existsSync(newJsonPath), 'New JSON attachment file must exist');
 
-const fileContent = fs.readFileSync(jsonPath, 'utf-8');
-const parsedData: AdultModelRaw[] = JSON.parse(fileContent);
-assert(Array.isArray(parsedData), 'Data must be an array');
-assert(parsedData.length === 50, `Expected 50 models, got ${parsedData.length}`);
+const newFileContent = fs.readFileSync(newJsonPath, 'utf-8');
+const newParsedData: AdultModelRaw[] = JSON.parse(newFileContent);
+assert(Array.isArray(newParsedData), 'Data must be an array');
+assert(newParsedData.length === 300, `Expected 300 models in new file, got ${newParsedData.length}`);
 
 let verifiedCount = 0;
-for (const item of parsedData) {
+for (const item of newParsedData) {
   const norm = normalizeAdultModel(item);
-  assert(norm.id > 0, `Model id must be positive: ${norm.id}`);
+  assert(Boolean(norm.id), `Model id must exist: ${norm.id}`);
   assert(norm.displayName.length > 0, `Display name must not be empty`);
   assert(norm.streamUrl.startsWith('http'), `Stream URL must be valid: ${norm.streamUrl}`);
   verifiedCount++;
 }
-assert(verifiedCount === 50, 'All 50 models normalized successfully');
+assert(verifiedCount === 300, 'All 300 models in new dataset normalized successfully');
 
-console.log('✅ All adult catalog unit tests passed successfully!');
+// Test 4: Deduplicated merge with previous dataset
+const oldJsonPath = path.resolve('public/assets/aistudio/2redex69_50_modelos_variadas_2026-10-26_6eec6bcf.json');
+assert(fs.existsSync(oldJsonPath), 'Old JSON attachment file must exist');
+const oldParsedData: AdultModelRaw[] = JSON.parse(fs.readFileSync(oldJsonPath, 'utf-8'));
+
+const dedupeMap = new Map<string, AdultModelRaw>();
+for (const item of newParsedData) {
+  dedupeMap.set(String(item.id || item.username), item);
+}
+for (const item of oldParsedData) {
+  const key = String(item.id || item.username);
+  if (!dedupeMap.has(key)) {
+    dedupeMap.set(key, item);
+  }
+}
+assert(dedupeMap.size === 349, `Expected 349 total unique models merged, got ${dedupeMap.size}`);
+
+console.log(`✅ All adult catalog unit tests passed! Verified ${dedupeMap.size} unique models across both datasets.`);

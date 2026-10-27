@@ -6,6 +6,11 @@
 import Hls from 'hls.js';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import {
+  canPlayNativeHls,
+  detectStreamFormat,
+  getOptimizedHlsConfig,
+} from './player-formats.ts';
+import {
   classifyError,
   detectErrorKind,
   ErrorKind,
@@ -43,6 +48,7 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
   const shakaRef = useRef<any>(null);
   const watchdogTimerRef = useRef<number | null>(null);
   const telemetryTimerRef = useRef<number | null>(null);
+  const mediaRecoveryCountRef = useRef<number>(0);
 
   const { usable: usableStreams, discardedMixedContentCount } = filterAndPrepareStreams(
     channel?.streams || []
@@ -59,6 +65,7 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
 
   const destroyEngines = () => {
     clearTimers();
+    mediaRecoveryCountRef.current = 0;
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -93,8 +100,23 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
         handleFailure('timeout', classifyError('timeout'), index, needsProxy);
       }, watchdogMs(needsProxy));
 
-      // 1. DASH stream (.mpd)
-      if (effectiveUrl.includes('.mpd')) {
+      const format = detectStreamFormat(effectiveUrl);
+
+      // 1. Direct HTML5 Video (.mp4, .webm, .ts, direct audio)
+      if (format === 'direct-video' || format === 'audio') {
+        video.src = effectiveUrl;
+        video.load();
+        if (isPlaying) video.play().catch(() => {});
+        saveStreamMethod(stream.url, 'direct');
+        dispatch({
+          type: 'UPDATE_TELEMETRY',
+          telemetry: { engineName: 'HTML5 Direct', isProxy: needsProxy },
+        });
+        return;
+      }
+
+      // 2. DASH stream (.mpd)
+      if (format === 'dash') {
         const player = await loadShakaDash(video, effectiveUrl, (kind, msg) => {
           handleFailure(kind, msg, index, needsProxy);
         });
@@ -106,21 +128,9 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
         }
       }
 
-      // 2. HLS stream (hls.js)
+      // 3. HLS stream (HLS.js)
       if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true,
-          backBufferLength: 15,
-          maxBufferLength: 20,
-          maxMaxBufferLength: 40,
-          maxBufferSize: 30 * 1000 * 1000,
-          manifestLoadingTimeOut: 8000,
-          manifestLoadingMaxRetry: 2,
-          fragLoadingTimeOut: 8000,
-          fragLoadingMaxRetry: 3,
-          capLevelToPlayerSize: true,
-        });
+        const hls = new Hls(getOptimizedHlsConfig(true));
         hlsRef.current = hls;
         hls.loadSource(effectiveUrl);
         hls.attachMedia(video);
@@ -153,7 +163,15 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
           if (data.fatal) {
             const kind = detectErrorKind(data, effectiveUrl, needsProxy);
             if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-              hls.recoverMediaError();
+              mediaRecoveryCountRef.current += 1;
+              if (mediaRecoveryCountRef.current === 1) {
+                hls.recoverMediaError();
+              } else if (mediaRecoveryCountRef.current === 2) {
+                hls.swapAudioCodec();
+                hls.recoverMediaError();
+              } else {
+                handleFailure(kind, classifyError(kind), index, needsProxy);
+              }
             } else {
               handleFailure(kind, classifyError(kind), index, needsProxy);
             }
@@ -161,8 +179,11 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
         });
 
         saveStreamMethod(stream.url, 'hls');
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      } else if (canPlayNativeHls(video)) {
+        // Native Safari WebKit HLS
         video.src = effectiveUrl;
+        video.load();
+        if (isPlaying) video.play().catch(() => {});
         saveStreamMethod(stream.url, 'native');
       } else {
         handleFailure('format', classifyError('format'), index, needsProxy);
@@ -241,9 +262,8 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
 
   const retry = useCallback(() => loadStreamAtIndex(state.streamIndex, false), [loadStreamAtIndex, state.streamIndex]);
   const retryWithProxy = useCallback(() => {
-    if (usableStreams[state.streamIndex]?.url) {
-      saveStreamRequiresProxy(usableStreams[state.streamIndex].url, true);
-    }
+    const s = usableStreams[state.streamIndex];
+    if (s?.url) saveStreamRequiresProxy(s.url, true);
     loadStreamAtIndex(state.streamIndex, true);
   }, [loadStreamAtIndex, state.streamIndex, usableStreams]);
   const switchStreamIndex = useCallback((idx: number) => loadStreamAtIndex(idx, false), [loadStreamAtIndex]);

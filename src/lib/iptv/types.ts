@@ -106,6 +106,7 @@ export interface CatalogChannel {
   subcategory?: string | null;
   logo?: string | null;
   website?: string | null;
+  embedUrl?: string | null;
   isCustom?: boolean;
   primaryStreamUrl?: string;
   qualityLabel?: string;

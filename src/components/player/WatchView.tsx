@@ -14,6 +14,8 @@ import { Player } from './Player.tsx';
 export interface WatchViewProps {
   channel: CatalogChannel | null;
   allChannels: CatalogChannel[];
+  categoryChannels?: CatalogChannel[];
+  categoryName?: string;
   settings: UserSettings;
   isFavorite: boolean;
   favoriteIds: Set<string>;
@@ -21,6 +23,7 @@ export interface WatchViewProps {
   onToggleFavorite: (channelId: string) => void;
   onSelectChannel: (channel: CatalogChannel) => void;
   onBack: () => void;
+  onExitCategory?: () => void;
   isMini?: boolean;
   onExpand?: () => void;
   onCloseMini?: () => void;
@@ -29,6 +32,8 @@ export interface WatchViewProps {
 export const WatchView: React.FC<WatchViewProps> = ({
   channel,
   allChannels,
+  categoryChannels,
+  categoryName,
   settings,
   isFavorite,
   favoriteIds,
@@ -36,23 +41,47 @@ export const WatchView: React.FC<WatchViewProps> = ({
   onToggleFavorite,
   onSelectChannel,
   onBack,
+  onExitCategory,
   isMini = false,
   onExpand,
   onCloseMini,
 }) => {
   const [logoFailed, setLogoFailed] = useState(false);
 
+  // Scoped navigation pool: strictly within the selected category or adult section
+  const navPool = useMemo(() => {
+    if (categoryChannels && categoryChannels.length > 0) return categoryChannels;
+    return allChannels;
+  }, [categoryChannels, allChannels]);
+
+  const currentIndex = useMemo(() => {
+    if (!channel) return -1;
+    return navPool.findIndex((c) => c.id === channel.id);
+  }, [navPool, channel?.id]);
+
+  const handlePrevChannel = () => {
+    if (navPool.length === 0) return;
+    const prevIdx = currentIndex > 0 ? currentIndex - 1 : navPool.length - 1;
+    onSelectChannel(navPool[prevIdx]);
+  };
+
+  const handleNextChannel = () => {
+    if (navPool.length === 0) return;
+    const nextIdx = currentIndex >= 0 && currentIndex < navPool.length - 1 ? currentIndex + 1 : 0;
+    onSelectChannel(navPool[nextIdx]);
+  };
+
   // Related channels from same category or same country
   const relatedChannels = useMemo(() => {
     if (!channel || isMini) return [];
-    return allChannels
+    return navPool
       .filter(
         (c) =>
           c.id !== channel.id &&
           (c.primary_category === channel.primary_category || c.country === channel.country)
       )
       .slice(0, 8);
-  }, [channel, allChannels, isMini]);
+  }, [channel, navPool, isMini]);
 
   if (!channel) {
     if (isMini) return null;
@@ -74,53 +103,60 @@ export const WatchView: React.FC<WatchViewProps> = ({
   if (isMini) {
     return (
       <MiniPlayer channel={channel} onExpand={onExpand || onBack} onClose={onCloseMini || onBack}>
-        <Player channel={channel} settings={settings} onUpdateSettings={onUpdateSettings} />
+        <Player
+          channel={channel}
+          settings={settings}
+          categoryLabel={categoryName}
+          onUpdateSettings={onUpdateSettings}
+          onPrevChannel={handlePrevChannel}
+          onNextChannel={handleNextChannel}
+        />
       </MiniPlayer>
     );
   }
 
   const avatar = getChannelAvatar(channel.name);
 
-  const currentIndex = useMemo(() => {
-    return allChannels.findIndex((c) => c.id === channel?.id);
-  }, [allChannels, channel?.id]);
-
-  const handlePrevChannel = () => {
-    if (currentIndex > 0) {
-      onSelectChannel(allChannels[currentIndex - 1]);
-    } else if (allChannels.length > 0) {
-      onSelectChannel(allChannels[allChannels.length - 1]);
-    }
-  };
-
-  const handleNextChannel = () => {
-    if (currentIndex >= 0 && currentIndex < allChannels.length - 1) {
-      onSelectChannel(allChannels[currentIndex + 1]);
-    } else if (allChannels.length > 0) {
-      onSelectChannel(allChannels[0]);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
-      {/* Top Navigation Back Button */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#111c2f] hover:bg-[#16233b] border border-[#1e293b] text-xs font-semibold text-[#e2e8f0] transition-colors cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4 text-emerald-400" />
-          <span>Volver al catálogo</span>
-        </button>
+      {/* Top Navigation Back & Category Context Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#111c2f] hover:bg-[#16233b] border border-[#1e293b] text-xs font-semibold text-[#e2e8f0] transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4 text-emerald-400" />
+            <span>{categoryName ? `Volver a ${categoryName}` : 'Volver al catálogo'}</span>
+          </button>
 
-        <span className="text-xs font-mono text-[#94a3b8] tabular-nums">#{channel.id}</span>
+          {categoryName && onExitCategory && (
+            <button
+              type="button"
+              onClick={onExitCategory}
+              className="px-3 py-2 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-xs text-slate-400 hover:text-slate-200 border border-slate-800 transition-colors cursor-pointer hidden sm:inline-block"
+            >
+              Ver catálogo general
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {categoryName && (
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+              {categoryName} {currentIndex >= 0 ? `(${currentIndex + 1} de ${navPool.length})` : ''}
+            </span>
+          )}
+          <span className="text-xs font-mono text-[#94a3b8] tabular-nums">#{channel.id}</span>
+        </div>
       </div>
 
       {/* Main Full Player Viewport */}
       <Player
         channel={channel}
         settings={settings}
+        categoryLabel={categoryName}
         onUpdateSettings={onUpdateSettings}
         onPrevChannel={handlePrevChannel}
         onNextChannel={handleNextChannel}

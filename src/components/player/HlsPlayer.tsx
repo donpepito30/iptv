@@ -5,6 +5,11 @@
 
 import Hls from 'hls.js';
 import React, { useEffect, useRef, useState } from 'react';
+import {
+  canPlayNativeHls,
+  detectStreamFormat,
+  getOptimizedHlsConfig,
+} from '../../lib/iptv/player-formats.ts';
 import { ChannelWithStream } from '../../lib/iptv/types.ts';
 
 export interface HlsPlayerProps {
@@ -94,14 +99,19 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({
       hlsRef.current = null;
     }
 
+    const format = detectStreamFormat(streamUrl);
+
+    // Direct MP4/WebM video
+    if (format === 'direct-video' || format === 'audio') {
+      video.src = streamUrl;
+      video.load();
+      if (isPlaying) video.play().catch(() => onPlayStateChange(false));
+      onBufferingChange(false);
+      return;
+    }
+
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: lowLatency,
-        backBufferLength: 30,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 6,
-      });
+      const hls = new Hls(getOptimizedHlsConfig(lowLatency));
 
       hlsRef.current = hls;
       hls.loadSource(streamUrl);
@@ -123,6 +133,7 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({
         }
       });
 
+      let mediaErrorCount = 0;
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) {
           switch (data.type) {
@@ -131,7 +142,11 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({
               hls.startLoad();
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
+              mediaErrorCount += 1;
               console.warn('[HlsPlayer] Fatal media error, recovering...', data);
+              if (mediaErrorCount > 1) {
+                hls.swapAudioCodec();
+              }
               hls.recoverMediaError();
               break;
             default:
@@ -142,9 +157,10 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({
           }
         }
       });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    } else if (canPlayNativeHls(video)) {
       // Native HLS for Safari/iOS
       video.src = streamUrl;
+      video.load();
       video.addEventListener('loadedmetadata', () => {
         onBufferingChange(false);
         if (isPlaying) {

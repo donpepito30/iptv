@@ -16,7 +16,7 @@ export interface NavigationState {
 
 export type NavigationAction =
   | { type: 'GO_TO_VIEW'; view: AppView }
-  | { type: 'WATCH_CHANNEL'; channelId: string }
+  | { type: 'WATCH_CHANNEL'; channelId: string; categoryId?: string | null }
   | { type: 'VIEW_DETAIL'; channelId: string }
   | { type: 'VIEW_CATEGORY'; categoryId: string | null }
   | { type: 'TOGGLE_SEARCH'; isOpen?: boolean };
@@ -32,7 +32,10 @@ function parseHash(): { view: AppView; channelId: string | null; categoryId: str
 
   const [key, value] = hash.split('=');
   if (key === 'watch' && value) {
-    return { view: 'watch', channelId: decodeURIComponent(value), categoryId: null };
+    const parts = value.split('&cat=');
+    const chId = decodeURIComponent(parts[0]);
+    const catId = parts[1] ? decodeURIComponent(parts[1]) : null;
+    return { view: 'watch', channelId: chId, categoryId: catId };
   }
   if (key === 'category' && value) {
     return { view: 'categories', channelId: null, categoryId: decodeURIComponent(value) };
@@ -57,7 +60,7 @@ function navigationReducer(state: NavigationState, action: NavigationAction): Na
         ...state,
         view: action.view,
         channelId: action.view === 'watch' ? state.channelId : null,
-        categoryId: action.view === 'categories' ? state.categoryId : null,
+        categoryId: action.view === 'categories' ? state.categoryId : state.categoryId,
       };
 
     case 'WATCH_CHANNEL':
@@ -65,6 +68,7 @@ function navigationReducer(state: NavigationState, action: NavigationAction): Na
         ...state,
         view: 'watch',
         channelId: action.channelId,
+        categoryId: action.categoryId !== undefined ? action.categoryId : state.categoryId,
         isSearchOpen: false,
       };
 
@@ -111,7 +115,9 @@ export function useNavigation() {
     if (typeof window === 'undefined') return;
 
     if (state.view === 'watch' && state.channelId) {
-      const targetHash = `#watch=${encodeURIComponent(state.channelId)}`;
+      const targetHash = state.categoryId
+        ? `#watch=${encodeURIComponent(state.channelId)}&cat=${encodeURIComponent(state.categoryId)}`
+        : `#watch=${encodeURIComponent(state.channelId)}`;
       if (window.location.hash !== targetHash) {
         window.history.pushState(null, '', targetHash);
       }
@@ -142,7 +148,7 @@ export function useNavigation() {
     const handleHashChange = () => {
       const parsed = parseHash();
       if (parsed.view === 'watch' && parsed.channelId) {
-        dispatch({ type: 'WATCH_CHANNEL', channelId: parsed.channelId });
+        dispatch({ type: 'WATCH_CHANNEL', channelId: parsed.channelId, categoryId: parsed.categoryId });
       } else if (parsed.view === 'categories') {
         if (parsed.categoryId) {
           dispatch({ type: 'VIEW_CATEGORY', categoryId: parsed.categoryId });
@@ -187,8 +193,8 @@ export function useNavigation() {
     dispatch({ type: 'GO_TO_VIEW', view });
   }, []);
 
-  const watchChannel = useCallback((channelId: string) => {
-    dispatch({ type: 'WATCH_CHANNEL', channelId });
+  const watchChannel = useCallback((channelId: string, categoryId?: string | null) => {
+    dispatch({ type: 'WATCH_CHANNEL', channelId, categoryId });
   }, []);
 
   const viewCategory = useCallback((categoryId: string | null) => {

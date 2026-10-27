@@ -94,15 +94,24 @@ async function handleStreamProxy(req: Request, res: Response): Promise<void> {
   const timer = setTimeout(() => controller.abort(), PROXY_TIMEOUT_MS);
 
   try {
+    const effectiveReferer =
+      customRef ||
+      (targetUrl.includes('saawsedge.com') ||
+      targetUrl.includes('strpst.com') ||
+      targetUrl.includes('doppicdn.com') ||
+      targetUrl.includes('stripchat')
+        ? 'https://stripchat.com/'
+        : undefined);
+
     const upstreamHeaders: Record<string, string> = {
       'User-Agent': customUa || DEFAULT_USER_AGENT,
       'Accept': '*/*',
     };
 
-    if (customRef) {
-      upstreamHeaders['Referer'] = customRef;
+    if (effectiveReferer) {
+      upstreamHeaders['Referer'] = effectiveReferer;
       try {
-        upstreamHeaders['Origin'] = new URL(customRef).origin;
+        upstreamHeaders['Origin'] = new URL(effectiveReferer).origin;
       } catch {
         // Ignore invalid referer origin
       }
@@ -137,7 +146,8 @@ async function handleStreamProxy(req: Request, res: Response): Promise<void> {
 
     if (isM3u8) {
       const text = await upstreamRes.text();
-      const rewritten = rewriteM3u8Content(text, targetUrl, customRef, customUa);
+      const finalBaseUrl = upstreamRes.url || targetUrl;
+      const rewritten = rewriteM3u8Content(text, finalBaseUrl, effectiveReferer, customUa);
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
       res.status(200).send(rewritten);
       return;
@@ -191,8 +201,20 @@ async function startServer() {
       return;
     }
     try {
+      const imgHeaders: Record<string, string> = {
+        'User-Agent': DEFAULT_USER_AGENT,
+        Accept: 'image/*,*/*',
+      };
+      if (
+        targetUrl.includes('strpst.com') ||
+        targetUrl.includes('doppicdn.com') ||
+        targetUrl.includes('saawsedge.com') ||
+        targetUrl.includes('stripchat')
+      ) {
+        imgHeaders['Referer'] = 'https://stripchat.com/';
+      }
       const imgRes = await fetch(targetUrl, {
-        headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'image/*,*/*' },
+        headers: imgHeaders,
       });
       if (!imgRes.ok) {
         res.status(imgRes.status).end();
