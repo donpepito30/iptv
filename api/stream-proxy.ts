@@ -83,15 +83,24 @@ export default async function handler(req: Request) {
     });
   }
 
+  const effectiveReferer =
+    customRef ||
+    (targetUrl.includes('saawsedge.com') ||
+    targetUrl.includes('strpst.com') ||
+    targetUrl.includes('doppicdn.com') ||
+    targetUrl.includes('stripchat')
+      ? 'https://stripchat.com/'
+      : null);
+
   const upstreamHeaders: Record<string, string> = {
     'User-Agent': customUa || DEFAULT_USER_AGENT,
     Accept: '*/*',
   };
 
-  if (customRef) {
-    upstreamHeaders['Referer'] = customRef;
+  if (effectiveReferer) {
+    upstreamHeaders['Referer'] = effectiveReferer;
     try {
-      upstreamHeaders['Origin'] = new URL(customRef).origin;
+      upstreamHeaders['Origin'] = new URL(effectiveReferer).origin;
     } catch {
       // Ignore
     }

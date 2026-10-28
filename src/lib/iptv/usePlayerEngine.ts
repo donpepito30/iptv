@@ -50,9 +50,12 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
   const telemetryTimerRef = useRef<number | null>(null);
   const mediaRecoveryCountRef = useRef<number>(0);
 
-  const { usable: usableStreams, discardedMixedContentCount } = filterAndPrepareStreams(
-    channel?.streams || []
-  );
+  const streamList = channel?.streams?.length
+    ? channel.streams
+    : channel?.primaryStreamUrl
+    ? [{ url: channel.primaryStreamUrl, status: 'online' }]
+    : [];
+  const { usable: usableStreams, discardedMixedContentCount } = filterAndPrepareStreams(streamList);
 
   const [state, dispatch] = useReducer(playerEngineReducer, INITIAL_PLAYER_STATE);
 

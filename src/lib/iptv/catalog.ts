@@ -159,6 +159,9 @@ export async function buildCatalog(options?: {
         title: raw.title || null,
         referrer: raw.referrer || raw.http_referrer || null,
         user_agent: raw.user_agent || null,
+        status: raw.status || null,
+        height: raw.height || null,
+        width: raw.width || null,
       };
 
       const list = streamsByChannel.get(raw.channel) || [];
