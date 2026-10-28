@@ -6,6 +6,29 @@
 const STORAGE_PREFIX = 'iptv:stream-proxy:';
 const CUSTOM_PROXY_KEY = 'iptv:custom-proxy-relay';
 
+const DOMAIN_PREFIX = 'iptv:proxy-domain:';
+const DOMAIN_TTL_MS = 6 * 60 * 60 * 1000;
+
+function hostOf(url: string): string | null {
+  try { return new URL(url).hostname.toLowerCase(); } catch { return null; }
+}
+function domainNeedsProxy(url: string): boolean {
+  const host = hostOf(url);
+  if (!host || typeof window === 'undefined') return false;
+  try {
+    const ts = Number(window.localStorage.getItem(`${DOMAIN_PREFIX}${host}`) || 0);
+    return ts > 0 && Date.now() - ts < DOMAIN_TTL_MS;
+  } catch { return false; }
+}
+function rememberDomain(url: string, requires: boolean): void {
+  const host = hostOf(url);
+  if (!host || typeof window === 'undefined') return;
+  try {
+    if (requires) window.localStorage.setItem(`${DOMAIN_PREFIX}${host}`, String(Date.now()));
+    else window.localStorage.removeItem(`${DOMAIN_PREFIX}${host}`);
+  } catch {}
+}
+
 let backendHealthCache: { ok: boolean; timestamp: number } | null = null;
 
 /**
@@ -101,10 +124,9 @@ export function requiresProxyFallback(originalUrl: string): boolean {
     return true;
   }
   try {
-    return window.localStorage?.getItem(`${STORAGE_PREFIX}${originalUrl}`) === '1';
-  } catch {
-    return false;
-  }
+    if (window.localStorage?.getItem(`${STORAGE_PREFIX}${originalUrl}`) === '1') return true;
+  } catch {}
+  return domainNeedsProxy(originalUrl);
 }
 
 /**
@@ -115,6 +137,7 @@ export function saveStreamRequiresProxy(originalUrl: string, requires: boolean):
   try {
     if (requires) {
       window.localStorage?.setItem(`${STORAGE_PREFIX}${originalUrl}`, '1');
+      rememberDomain(originalUrl, true);
     } else {
       window.localStorage?.removeItem(`${STORAGE_PREFIX}${originalUrl}`);
     }

@@ -20,7 +20,7 @@ export type ErrorKind =
  * Watchdog timeout in ms: 8000ms per attempt.
  */
 export function watchdogMs(hasProxy = false): number {
-  return hasProxy ? 8000 : 8000;
+  return hasProxy ? 8000 : 5000;
 }
 
 /**

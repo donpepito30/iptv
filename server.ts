@@ -186,8 +186,8 @@ async function handleStreamProxy(req: Request, res: Response): Promise<void> {
 async function startServer() {
   const app = express();
 
-  // Stream relay endpoint
-  app.all('/api/stream-proxy', (req, res) => {
+  // Stream relay endpoint (supports both /api/stream-proxy and /api/proxy)
+  app.all(['/api/stream-proxy', '/api/proxy'], (req, res) => {
     handleStreamProxy(req, res).catch(() => {
       if (!res.headersSent) res.status(500).end();
     });

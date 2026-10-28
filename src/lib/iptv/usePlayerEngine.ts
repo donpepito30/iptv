@@ -130,7 +130,7 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
 
       // 3. HLS stream (HLS.js)
       if (Hls.isSupported()) {
-        const hls = new Hls(getOptimizedHlsConfig(true));
+        const hls = new Hls(getOptimizedHlsConfig(true, !needsProxy));
         hlsRef.current = hls;
         hls.loadSource(effectiveUrl);
         hls.attachMedia(video);

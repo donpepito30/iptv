@@ -57,7 +57,7 @@ export function detectStreamFormat(url: string): StreamFormat {
  * Returns senior IPTV production configuration for HLS.js
  * tuned for low latency, fMP4 compatibility, and network buffering resilience.
  */
-export function getOptimizedHlsConfig(lowLatency: boolean): Partial<HlsConfig> {
+export function getOptimizedHlsConfig(lowLatency: boolean, fastFail = false): Partial<HlsConfig> {
   return {
     enableWorker: true,
     lowLatencyMode: lowLatency,
@@ -65,12 +65,12 @@ export function getOptimizedHlsConfig(lowLatency: boolean): Partial<HlsConfig> {
     maxBufferLength: 25,
     maxMaxBufferLength: 45,
     maxBufferSize: 50 * 1024 * 1024, // 50 MB
-    manifestLoadingTimeOut: 10000,
-    manifestLoadingMaxRetry: 3,
+    manifestLoadingTimeOut: fastFail ? 4000 : 10000,
+    manifestLoadingMaxRetry: fastFail ? 0 : 3,
     manifestLoadingRetryDelay: 1000,
     manifestLoadingMaxRetryTimeout: 15000,
-    levelLoadingTimeOut: 10000,
-    levelLoadingMaxRetry: 3,
+    levelLoadingTimeOut: fastFail ? 4000 : 10000,
+    levelLoadingMaxRetry: fastFail ? 0 : 3,
     fragLoadingTimeOut: 12000,
     fragLoadingMaxRetry: 4,
     fragLoadingRetryDelay: 1000,
