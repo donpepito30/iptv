@@ -86,8 +86,8 @@ assert(filterCatalogChannels(testChannels, { search: '', country: 'ALL', region:
 assert(filterCatalogChannels(testChannels, { search: '', country: 'ALL', region: 'ALL', category: 'ALL', minQuality: '1080p', onlyFavorites: false, onlyLive: false }).length === 1, 'Min quality 1080p');
 
 // Test 10: player fallback & stream ordering
-assert(watchdogMs(false) === 5000, 'watchdogMs direct 5000ms');
-assert(watchdogMs(true) === 8000, 'watchdogMs proxy 8000ms');
+assert(watchdogMs(false) === 8000, 'watchdogMs direct 8000ms');
+assert(watchdogMs(true) === 12000, 'watchdogMs proxy 12000ms');
 assert(nextFallback(0, 3, 5) === 'next_stream', 'next stream');
 assert(nextFallback(4, 10, 5) === 'give_up', 'give up after 5');
 assert(classifyError('timeout').includes('Tiempo de espera'), 'timeout msg');

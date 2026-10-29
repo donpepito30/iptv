@@ -20,7 +20,7 @@ export type ErrorKind =
  * Watchdog timeout in ms: 8000ms per attempt.
  */
 export function watchdogMs(hasProxy = false): number {
-  return hasProxy ? 8000 : 5000;
+  return hasProxy ? 12000 : 8000;
 }
 
 /**
@@ -44,7 +44,7 @@ export function nextFallback(
 export function classifyError(kind: ErrorKind, detail?: string): string {
   switch (kind) {
     case 'timeout':
-      return 'Tiempo de espera agotado (8 s). La señal de origen no responde al flujo de datos.';
+      return 'Tiempo de espera agotado. La señal de origen tarda demasiado o no responde al flujo de datos.';
 
     case 'cors':
       return 'Señal con restricción de origen cruzado (CORS). Requiere túnel proxy para reproducir en navegador.';

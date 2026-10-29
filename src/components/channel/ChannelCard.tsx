@@ -51,10 +51,10 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
           onSelect(channel);
         }
       }}
-      className={`group relative flex flex-col justify-between p-3.5 rounded-2xl cursor-pointer transition-all duration-200 select-none text-left focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:scale-[1.03] focus:z-10 focus:shadow-xl ${
+      className={`group relative flex flex-col justify-between p-3.5 rounded-2xl cursor-pointer transition-all duration-200 select-none text-left focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:scale-[1.02] focus:z-10 ${
         isActive
-          ? 'bg-[#14233c] border-2 border-[#34d399] shadow-lg shadow-emerald-500/15 ring-1 ring-emerald-500/30'
-          : 'bg-[#111c2f] border border-[#1e293b] hover:border-slate-700 hover:bg-[#16233b] hover:shadow-md'
+          ? 'bg-[#152542] border-2 border-[#34d399] shadow-xl shadow-emerald-500/25 ring-2 ring-emerald-500/30'
+          : 'card-3d'
       }`}
     >
       {/* Top Header inside card: Live Beacon + Quality + Favorite Heart */}

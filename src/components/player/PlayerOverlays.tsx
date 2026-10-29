@@ -161,7 +161,7 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
             setCountdown(null);
             onRetry();
           }}
-          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="btn-3d-slate px-4 py-2 rounded-xl text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>Reintentar</span>
@@ -174,9 +174,9 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
               setCountdown(null);
               onRetryWithProxy();
             }}
-            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="btn-3d-emerald px-4 py-2 rounded-xl text-slate-950 text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <ShieldCheck className="w-3.5 h-3.5" />
+            <ShieldCheck className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Forzar Proxy Relay</span>
           </button>
         )}
@@ -188,7 +188,7 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
               setCountdown(null);
               onSwitchToEmbed();
             }}
-            className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-lg shadow-rose-950/50"
+            className="btn-3d-rose px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <span>Modo Oficial Embebido</span>
           </button>
@@ -198,7 +198,7 @@ export const PlayerErrorOverlay: React.FC<PlayerErrorOverlayProps> = ({
           <button
             type="button"
             onClick={onNextChannel}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="btn-3d-slate px-4 py-2 rounded-xl text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <span>
               {categoryLabel ? `Siguiente (${categoryLabel})` : 'Siguiente Canal'}

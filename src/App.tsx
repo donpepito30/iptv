@@ -8,6 +8,7 @@ import { AdultView } from './components/adult/AdultView.tsx';
 import { CatalogSkeleton } from './components/catalog/CatalogSkeleton.tsx';
 import { CategoriesView } from './components/categories/CategoriesView.tsx';
 import { CustomStreamModal } from './components/channel/CustomStreamModal.tsx';
+import { FavoritesView } from './components/favorites/FavoritesView.tsx';
 import { GuideView } from './components/guide/GuideView.tsx';
 import { BrowseView } from './components/home/BrowseView.tsx';
 import { Footer } from './components/layout/Footer.tsx';
@@ -35,16 +36,7 @@ export default function App() {
   const { addToHistory } = useHistory();
   const { customChannels, addCustomChannel } = useCustomChannels();
 
-  const {
-    view,
-    channelId,
-    categoryId,
-    isSearchOpen,
-    goToView,
-    watchChannel,
-    viewCategory,
-    toggleSearch,
-  } = useNavigation();
+  const { view, channelId, categoryId, isSearchOpen, goToView, watchChannel, viewCategory, toggleSearch } = useNavigation();
 
   const { data, loading, error, progress, retry } = useIptvCatalog();
 
@@ -67,9 +59,14 @@ export default function App() {
     return [...customChannels, ...data.channels];
   }, [data, customChannels]);
 
+  const isAdultMode = Boolean(channelId?.startsWith('adult-') || categoryId === 'adult');
+
   const watchAllChannels = useMemo(() => {
-    return activeAdultChannel ? [activeAdultChannel, ...allChannels] : allChannels;
-  }, [activeAdultChannel, allChannels]);
+    if (isAdultMode) {
+      return adultChannels.length > 0 ? adultChannels : (activeAdultChannel ? [activeAdultChannel] : []);
+    }
+    return allChannels;
+  }, [isAdultMode, adultChannels, activeAdultChannel, allChannels]);
 
   const favoriteIdsSet = useMemo(() => new Set(favorites), [favorites]);
 
@@ -79,24 +76,31 @@ export default function App() {
       if (activeAdultChannel && activeAdultChannel.id === channelId) return activeAdultChannel;
       const foundInAdult = adultChannels.find((c) => c.id === channelId);
       if (foundInAdult) return foundInAdult;
+      return activeAdultChannel || null;
     }
-    return allChannels.find((c) => c.id === channelId) || activeAdultChannel || allChannels[0] || null;
+    return allChannels.find((c) => c.id === channelId) || allChannels[0] || null;
   }, [channelId, allChannels, activeAdultChannel, adultChannels]);
 
   const currentCategory = useMemo(() => {
     if (channelId?.startsWith('adult-') || categoryId === 'adult') return 'adult';
+    if (categoryId === 'favorites' || view === 'favorites') return 'favorites';
     return categoryId || currentWatchChannel?.primary_category || null;
-  }, [channelId, categoryId, currentWatchChannel]);
+  }, [channelId, categoryId, view, currentWatchChannel]);
 
   const categoryDisplayName = useMemo(() => {
     if (currentCategory === 'adult') return '+18 Adultos';
+    if (currentCategory === 'favorites') return '⭐ Favoritos';
     if (!currentCategory) return undefined;
     return CATEGORY_BY_ID.get(currentCategory)?.name || currentCategory;
   }, [currentCategory]);
 
   const scopedCategoryChannels = useMemo(() => {
     if (currentCategory === 'adult' || currentWatchChannel?.id.startsWith('adult-')) {
-      return adultChannels.length > 0 ? adultChannels : (activeAdultChannel ? [activeAdultChannel] : watchAllChannels);
+      return adultChannels.length > 0 ? adultChannels : (activeAdultChannel ? [activeAdultChannel] : []);
+    }
+    if (currentCategory === 'favorites') {
+      const favs = allChannels.filter((c) => favoriteIdsSet.has(c.id));
+      return favs.length > 0 ? favs : allChannels;
     }
     if (currentCategory) {
       const filtered = allChannels.filter(
@@ -104,8 +108,8 @@ export default function App() {
       );
       if (filtered.length > 0) return filtered;
     }
-    return watchAllChannels;
-  }, [currentCategory, currentWatchChannel, adultChannels, activeAdultChannel, allChannels, watchAllChannels]);
+    return allChannels;
+  }, [currentCategory, currentWatchChannel, adultChannels, activeAdultChannel, allChannels, favoriteIdsSet]);
 
   useEffect(() => {
     if (view === 'watch' && currentWatchChannel) {
@@ -114,12 +118,15 @@ export default function App() {
     }
   }, [view, currentWatchChannel?.id, addToHistory]);
 
-  const handleSelectChannel = (channel: CatalogChannel) => {
+  const handleSelectChannel = (channel: CatalogChannel, overrideCat?: string | null) => {
     if (channel.id.startsWith('adult-')) {
       setActiveAdultChannel(channel);
       watchChannel(channel.id, 'adult');
     } else {
-      watchChannel(channel.id, categoryId || channel.primary_category || null);
+      const cat = overrideCat !== undefined
+        ? overrideCat
+        : (view === 'favorites' || categoryId === 'favorites' ? 'favorites' : (categoryId || channel.primary_category || null));
+      watchChannel(channel.id, cat);
     }
     setIsMiniClosed(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -128,6 +135,8 @@ export default function App() {
   const handleBackFromWatch = () => {
     if (currentCategory === 'adult' || currentWatchChannel?.id.startsWith('adult-')) {
       goToView('adult');
+    } else if (currentCategory === 'favorites' || categoryId === 'favorites') {
+      goToView('favorites');
     } else if (categoryId) {
       viewCategory(categoryId);
     } else if (currentWatchChannel?.primary_category) {
@@ -143,6 +152,7 @@ export default function App() {
         language={locale}
         theme={theme}
         currentView={view}
+        favoritesCount={favorites.length}
         onNavigate={goToView}
         onLanguageChange={setLocale}
         onThemeToggle={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
@@ -222,6 +232,17 @@ export default function App() {
               />
             )}
 
+            {view === 'favorites' && (
+              <FavoritesView
+                channels={allChannels}
+                favoriteIds={favoriteIdsSet}
+                activeChannelId={currentWatchChannel?.id}
+                onSelectChannel={(ch) => handleSelectChannel(ch, 'favorites')}
+                onToggleFavorite={toggleFavorite}
+                onExploreChannels={() => goToView('browse')}
+              />
+            )}
+
             {view === 'categories' && (
               <CategoriesView
                 channels={allChannels}
@@ -235,28 +256,16 @@ export default function App() {
             )}
 
             {view === 'guide' && (
-              <GuideView
-                channels={allChannels}
-                activeChannelId={currentWatchChannel?.id}
-                onSelectChannel={handleSelectChannel}
-              />
+              <GuideView channels={allChannels} activeChannelId={currentWatchChannel?.id} onSelectChannel={handleSelectChannel} />
             )}
-
             {view === 'adult' && (
-              <AdultView
-                activeChannelId={currentWatchChannel?.id}
-                onSelectChannel={handleSelectChannel}
-                onExit={() => goToView('browse')}
-              />
+              <AdultView activeChannelId={currentWatchChannel?.id} onSelectChannel={handleSelectChannel} onExit={() => goToView('browse')} />
             )}
           </>
         )}
       </main>
 
-      <Footer
-        onOpenShortcuts={() => setIsShortcutsModalOpen(true)}
-        onOpenCustomModal={() => setIsCustomModalOpen(true)}
-      />
+      <Footer onOpenShortcuts={() => setIsShortcutsModalOpen(true)} onOpenCustomModal={() => setIsCustomModalOpen(true)} />
 
       <CustomStreamModal
         isOpen={isCustomModalOpen}
@@ -269,20 +278,11 @@ export default function App() {
         }}
       />
 
-      <ShortcutsModal
-        isOpen={isShortcutsModalOpen}
-        language={locale}
-        onClose={() => setIsShortcutsModalOpen(false)}
-      />
+      <ShortcutsModal isOpen={isShortcutsModalOpen} language={locale} onClose={() => setIsShortcutsModalOpen(false)} />
 
       <Suspense fallback={null}>
         {isSearchOpen && (
-          <CommandPalette
-            isOpen={isSearchOpen}
-            channels={allChannels}
-            onClose={() => toggleSearch(false)}
-            onSelectChannel={handleSelectChannel}
-          />
+          <CommandPalette isOpen={isSearchOpen} channels={allChannels} onClose={() => toggleSearch(false)} onSelectChannel={handleSelectChannel} />
         )}
       </Suspense>
     </div>

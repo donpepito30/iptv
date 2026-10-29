@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useReducer } from 'react';
 
-export type AppView = 'browse' | 'watch' | 'guide' | 'categories' | 'detail' | 'adult';
+export type AppView = 'browse' | 'watch' | 'guide' | 'categories' | 'detail' | 'adult' | 'favorites';
 
 export interface NavigationState {
   view: AppView;
@@ -49,6 +49,9 @@ function parseHash(): { view: AppView; channelId: string | null; categoryId: str
   if (key === 'adult') {
     return { view: 'adult', channelId: null, categoryId: null };
   }
+  if (key === 'favorites') {
+    return { view: 'favorites', channelId: null, categoryId: 'favorites' };
+  }
 
   return { view: 'browse', channelId: null, categoryId: null };
 }
@@ -60,7 +63,7 @@ function navigationReducer(state: NavigationState, action: NavigationAction): Na
         ...state,
         view: action.view,
         channelId: action.view === 'watch' ? state.channelId : null,
-        categoryId: action.view === 'categories' ? state.categoryId : state.categoryId,
+        categoryId: action.view === 'favorites' ? 'favorites' : state.categoryId,
       };
 
     case 'WATCH_CHANNEL':
@@ -134,6 +137,10 @@ export function useNavigation() {
       if (window.location.hash !== '#adult') {
         window.history.pushState(null, '', '#adult');
       }
+    } else if (state.view === 'favorites') {
+      if (window.location.hash !== '#favorites') {
+        window.history.pushState(null, '', '#favorites');
+      }
     } else if (state.view === 'browse') {
       if (window.location.hash && window.location.hash !== '#browse') {
         window.history.pushState(null, '', window.location.pathname + window.location.search);
@@ -159,6 +166,8 @@ export function useNavigation() {
         dispatch({ type: 'GO_TO_VIEW', view: 'guide' });
       } else if (parsed.view === 'adult') {
         dispatch({ type: 'GO_TO_VIEW', view: 'adult' });
+      } else if (parsed.view === 'favorites') {
+        dispatch({ type: 'GO_TO_VIEW', view: 'favorites' });
       } else {
         dispatch({ type: 'GO_TO_VIEW', view: 'browse' });
       }

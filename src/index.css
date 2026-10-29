@@ -3,6 +3,7 @@
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #080d1a;
   }
   
   /* Custom scrollbar for dark IPTV theme */
@@ -21,3 +22,92 @@
     background: #334155;
   }
 }
+
+/* --- 3D Tactile Buttons & Layered Depth System --- */
+
+.btn-3d-emerald {
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 3px 0 0 #047857, 0 6px 14px -2px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-3d-emerald:hover {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+  box-shadow: 0 4px 0 0 #047857, 0 8px 18px -2px rgba(16, 185, 129, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+.btn-3d-emerald:active {
+  box-shadow: 0 1px 0 0 #047857, 0 2px 6px rgba(16, 185, 129, 0.3);
+  transform: translateY(2px);
+}
+
+.btn-3d-slate {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  box-shadow: 0 3px 0 0 #020617, 0 6px 14px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-3d-slate:hover {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  box-shadow: 0 4px 0 0 #020617, 0 8px 18px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+.btn-3d-slate:active {
+  box-shadow: 0 1px 0 0 #020617, 0 2px 4px rgba(0, 0, 0, 0.4);
+  transform: translateY(2px);
+}
+
+.btn-3d-amber {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  box-shadow: 0 3px 0 0 #b45309, 0 6px 14px -2px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-3d-amber:hover {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+  box-shadow: 0 4px 0 0 #b45309, 0 8px 18px -2px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+.btn-3d-amber:active {
+  box-shadow: 0 1px 0 0 #b45309, 0 2px 6px rgba(245, 158, 11, 0.3);
+  transform: translateY(2px);
+}
+
+.btn-3d-rose {
+  background: linear-gradient(180deg, #f43f5e 0%, #e11d48 100%);
+  box-shadow: 0 3px 0 0 #9f1239, 0 6px 14px -2px rgba(244, 63, 94, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.btn-3d-rose:hover {
+  background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+  box-shadow: 0 4px 0 0 #9f1239, 0 8px 18px -2px rgba(244, 63, 94, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+.btn-3d-rose:active {
+  box-shadow: 0 1px 0 0 #9f1239, 0 2px 6px rgba(244, 63, 94, 0.3);
+  transform: translateY(2px);
+}
+
+/* 3D Elevated Cards & Structural Panels */
+.panel-3d {
+  background: linear-gradient(180deg, #131f38 0%, #0e172a 100%);
+  border: 1px solid #1e293b;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.6), 0 4px 8px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.card-3d {
+  background: linear-gradient(180deg, #131e33 0%, #0f182b 100%);
+  border: 1px solid #1e293b;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-3d:hover {
+  transform: translateY(-2px);
+  border-color: #334155;
+  border-top-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 14px 28px -6px rgba(0, 0, 0, 0.7), 0 6px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(52, 211, 153, 0.25);
+}
+

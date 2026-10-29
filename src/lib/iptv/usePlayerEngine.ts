@@ -5,39 +5,13 @@
 
 import Hls from 'hls.js';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import {
-  canPlayNativeHls,
-  detectStreamFormat,
-  getOptimizedHlsConfig,
-} from './player-formats.ts';
-import {
-  classifyError,
-  detectErrorKind,
-  ErrorKind,
-  nextFallback,
-  watchdogMs,
-} from './player-fallback.ts';
-import {
-  INITIAL_PLAYER_STATE,
-  playerEngineReducer,
-  PlayerState,
-} from './player-reducer.ts';
-import {
-  getBufferAhead,
-  getDroppedFrames,
-} from './player-telemetry.ts';
+import { canPlayNativeHls, detectStreamFormat, getOptimizedHlsConfig } from './player-formats.ts';
+import { classifyError, detectErrorKind, ErrorKind, nextFallback, watchdogMs } from './player-fallback.ts';
+import { INITIAL_PLAYER_STATE, playerEngineReducer, PlayerState } from './player-reducer.ts';
+import { getBufferAhead, getDroppedFrames } from './player-telemetry.ts';
 import { loadShakaDash } from './shaka-loader.ts';
-import {
-  getProxiedStreamUrl,
-  requiresProxyFallback,
-  saveStreamRequiresProxy,
-} from './stream-proxy.ts';
-import {
-  filterAndPrepareStreams,
-  isMixedContent,
-  MAX_STREAMS_PER_CHANNEL,
-  saveStreamMethod,
-} from './stream-strategy.ts';
+import { getProxiedStreamUrl, requiresProxyFallback, saveStreamRequiresProxy } from './stream-proxy.ts';
+import { filterAndPrepareStreams, isMixedContent, MAX_STREAMS_PER_CHANNEL, saveStreamMethod } from './stream-strategy.ts';
 import { CatalogChannel } from './types.ts';
 
 export type { PlayerState };
@@ -139,6 +113,12 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+          if (watchdogTimerRef.current) {
+            clearTimeout(watchdogTimerRef.current);
+            watchdogTimerRef.current = window.setTimeout(() => {
+              handleFailure('timeout', classifyError('timeout'), index, needsProxy);
+            }, 10000);
+          }
           if (data.levels) {
             dispatch({
               type: 'SET_LEVELS',
@@ -147,6 +127,15 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
           }
           if (needsProxy) saveStreamRequiresProxy(stream.url, true);
           if (isPlaying) video.play().catch(() => {});
+        });
+
+        hls.on(Hls.Events.FRAG_LOADED, () => {
+          if (watchdogTimerRef.current) {
+            clearTimeout(watchdogTimerRef.current);
+            watchdogTimerRef.current = window.setTimeout(() => {
+              handleFailure('timeout', classifyError('timeout'), index, needsProxy);
+            }, 8000);
+          }
         });
 
         hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {

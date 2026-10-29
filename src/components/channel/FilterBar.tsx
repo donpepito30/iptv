@@ -75,15 +75,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <button
             type="button"
             onClick={() => onFilterChange({ onlyFavorites: !filterState.onlyFavorites })}
-            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               filterState.onlyFavorites
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
-                : 'bg-[#111c2f] text-[#94a3b8] hover:text-[#e2e8f0] border-[#1e293b]'
+                ? 'btn-3d-amber text-slate-950 font-black'
+                : 'btn-3d-slate text-[#94a3b8] hover:text-[#e2e8f0]'
             }`}
           >
-            <Star className={`w-3.5 h-3.5 ${filterState.onlyFavorites ? 'fill-amber-400 text-amber-400' : ''}`} />
+            <Star className={`w-3.5 h-3.5 ${filterState.onlyFavorites ? 'fill-slate-950' : 'text-amber-400 fill-amber-400/30'}`} />
             <span>Favoritos</span>
-            <span className="text-[11px] font-mono tabular-nums opacity-75">({favoritesCount})</span>
+            <span className="text-[11px] font-mono tabular-nums opacity-90">({favoritesCount})</span>
           </button>
 
           {/* Requested button: "solo en vivo" (inactivo por ahora) */}

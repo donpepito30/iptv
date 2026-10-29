@@ -125,13 +125,13 @@ export const WatchView: React.FC<WatchViewProps> = ({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#111c2f] hover:bg-[#16233b] border border-[#1e293b] text-xs font-semibold text-[#e2e8f0] transition-colors cursor-pointer"
+            className="btn-3d-slate inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-[#e2e8f0] transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 text-emerald-400" />
             <span>{categoryName ? `Volver a ${categoryName}` : 'Volver al catálogo'}</span>
           </button>
 
-          {categoryName && onExitCategory && (
+          {categoryName && onExitCategory && categoryName !== '+18 Adultos' && (
             <button
               type="button"
               onClick={onExitCategory}
@@ -144,7 +144,7 @@ export const WatchView: React.FC<WatchViewProps> = ({
 
         <div className="flex items-center gap-2">
           {categoryName && (
-            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+            <span className="px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold shadow-xs">
               {categoryName} {currentIndex >= 0 ? `(${currentIndex + 1} de ${navPool.length})` : ''}
             </span>
           )}
@@ -163,7 +163,7 @@ export const WatchView: React.FC<WatchViewProps> = ({
       />
 
       {/* Channel Details Info Sheet */}
-      <div className="p-5 rounded-2xl bg-[#111c2f] border border-[#1e293b] flex flex-col md:flex-row md:items-center justify-between gap-5">
+      <div className="p-5 rounded-2xl panel-3d flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div className="flex items-center gap-4 min-w-0">
           <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden shadow-inner p-1">
             {channel.logo && !logoFailed ? (
