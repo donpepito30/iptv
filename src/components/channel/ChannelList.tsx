@@ -6,6 +6,7 @@
 import { ChevronDown, SearchX, Star, Tv } from 'lucide-react';
 import React, { useState } from 'react';
 import { t } from '../../lib/iptv/i18n.ts';
+import { useDeviceProfile } from '../../lib/iptv/device-profile.ts';
 import { AppLanguage, ChannelWithStream } from '../../lib/iptv/types.ts';
 import { ChannelCard } from './ChannelCard.tsx';
 
@@ -21,8 +22,6 @@ export interface ChannelListProps {
   onClearHistory?: () => void;
 }
 
-const PAGE_SIZE = 36;
-
 export const ChannelList: React.FC<ChannelListProps> = ({
   channels,
   activeChannelId,
@@ -34,14 +33,15 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   onResetFilters,
   onClearHistory,
 }) => {
-  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
+  const profile = useDeviceProfile();
+  const [displayCount, setDisplayCount] = useState(profile.pageSize);
 
   // Reset pagination when channel count shifts dramatically
   const visibleChannels = channels.slice(0, displayCount);
   const hasMore = displayCount < channels.length;
 
   const handleLoadMore = () => {
-    setDisplayCount((prev) => Math.min(prev + PAGE_SIZE, channels.length));
+    setDisplayCount((prev) => Math.min(prev + profile.pageSize, channels.length));
   };
 
   // Empty state handling

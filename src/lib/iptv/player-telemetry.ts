@@ -12,6 +12,8 @@ export interface PlayerTelemetry {
   isProxy: boolean;
   engineName: string;
   isAudioOnly: boolean;
+  deviceTier: string;
+  bufferCapMb: number;
 }
 
 export const INITIAL_TELEMETRY: PlayerTelemetry = {
@@ -23,6 +25,8 @@ export const INITIAL_TELEMETRY: PlayerTelemetry = {
   isProxy: false,
   engineName: '--',
   isAudioOnly: false,
+  deviceTier: 'Escritorio',
+  bufferCapMb: 60,
 };
 
 /**

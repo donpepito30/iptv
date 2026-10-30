@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/lib/iptv/__tests__/adult-catalog.test.ts && tsx src/lib/iptv/__tests__/iptv-logic.test.ts"
+    "test": "tsx src/lib/iptv/__tests__/adult-catalog.test.ts && tsx src/lib/iptv/__tests__/iptv-logic.test.ts && tsx src/lib/iptv/__tests__/device-profile.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -6,6 +6,7 @@
 import Hls from 'hls.js';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { canPlayNativeHls, detectStreamFormat, getOptimizedHlsConfig } from './player-formats.ts';
+import { getDeviceProfile } from './device-profile.ts';
 import { classifyError, detectErrorKind, ErrorKind, nextFallback, watchdogMs } from './player-fallback.ts';
 import { INITIAL_PLAYER_STATE, playerEngineReducer, PlayerState } from './player-reducer.ts';
 import { getBufferAhead, getDroppedFrames } from './player-telemetry.ts';
@@ -107,7 +108,8 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
 
       // 3. HLS stream (HLS.js)
       if (Hls.isSupported()) {
-        const hls = new Hls(getOptimizedHlsConfig(true, !needsProxy));
+        const deviceProfile = getDeviceProfile();
+        const hls = new Hls(getOptimizedHlsConfig(true, !needsProxy, deviceProfile));
         hlsRef.current = hls;
         hls.loadSource(effectiveUrl);
         hls.attachMedia(video);
@@ -227,6 +229,7 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
 
     telemetryTimerRef.current = window.setInterval(() => {
       if (video && !video.paused) {
+        const prof = getDeviceProfile();
         dispatch({
           type: 'UPDATE_TELEMETRY',
           telemetry: {
@@ -234,6 +237,8 @@ export function usePlayerEngine(channel: CatalogChannel | null, isPlaying = true
             droppedFrames: getDroppedFrames(video),
             resolution: video.videoWidth ? `${video.videoWidth}x${video.videoHeight}` : '--',
             isAudioOnly: video.videoWidth === 0 && video.currentTime > 2,
+            deviceTier: prof.label,
+            bufferCapMb: prof.maxBufferSizeMb,
           },
         });
       }

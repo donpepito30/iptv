@@ -4,6 +4,7 @@
  */
 
 import type { HlsConfig } from 'hls.js';
+import { DeviceProfile, getDeviceProfile } from './device-profile.ts';
 
 export type StreamFormat = 'hls' | 'dash' | 'direct-video' | 'audio' | 'unknown';
 
@@ -55,31 +56,38 @@ export function detectStreamFormat(url: string): StreamFormat {
 
 /**
  * Returns senior IPTV production configuration for HLS.js
- * tuned for low latency, fMP4 compatibility, and network buffering resilience.
+ * tuned for low latency, fMP4 compatibility, and device-tailored buffer memory limits.
  */
-export function getOptimizedHlsConfig(lowLatency: boolean, fastFail = false): Partial<HlsConfig> {
+export function getOptimizedHlsConfig(
+  lowLatency: boolean,
+  fastFail = false,
+  customProfile?: DeviceProfile
+): Partial<HlsConfig> {
+  const profile = customProfile || getDeviceProfile();
+  const maxBufferSize = profile.maxBufferSizeMb * 1024 * 1024;
+
   return {
     enableWorker: true,
     lowLatencyMode: lowLatency,
-    backBufferLength: 20,
-    maxBufferLength: 25,
-    maxMaxBufferLength: 45,
-    maxBufferSize: 50 * 1024 * 1024, // 50 MB
-    manifestLoadingTimeOut: fastFail ? 6000 : 12000,
-    manifestLoadingMaxRetry: fastFail ? 1 : 3,
+    backBufferLength: profile.backBufferLengthSec,
+    maxBufferLength: profile.maxBufferLengthSec,
+    maxMaxBufferLength: profile.maxMaxBufferLengthSec,
+    maxBufferSize,
+    manifestLoadingTimeOut: fastFail ? 4000 : 10000,
+    manifestLoadingMaxRetry: fastFail ? 0 : 3,
     manifestLoadingRetryDelay: 1000,
-    manifestLoadingMaxRetryTimeout: 18000,
-    levelLoadingTimeOut: fastFail ? 6000 : 12000,
-    levelLoadingMaxRetry: fastFail ? 1 : 3,
-    fragLoadingTimeOut: 15000,
-    fragLoadingMaxRetry: 4,
+    manifestLoadingMaxRetryTimeout: 16000,
+    levelLoadingTimeOut: fastFail ? 4000 : 10000,
+    levelLoadingMaxRetry: fastFail ? 0 : 3,
+    fragLoadingTimeOut: fastFail ? 8000 : 15000,
+    fragLoadingMaxRetry: fastFail ? 1 : 4,
     fragLoadingRetryDelay: 1000,
     startFragPrefetch: true,
-    capLevelToPlayerSize: true,
+    capLevelToPlayerSize: profile.capLevelToPlayerSize,
     testBandwidth: true,
     progressive: true,
-    liveSyncDurationCount: 3,
-    liveMaxLatencyDurationCount: 6,
+    liveSyncDurationCount: profile.lowPowerDevice ? 2 : 3,
+    liveMaxLatencyDurationCount: profile.lowPowerDevice ? 5 : 6,
   };
 }
 

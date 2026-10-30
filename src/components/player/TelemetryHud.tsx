@@ -97,6 +97,13 @@ export const TelemetryHud: React.FC<TelemetryHudProps> = ({
         </div>
 
         <div className="flex items-center justify-between">
+          <span className="text-slate-400">Perfil Hardware:</span>
+          <span className="font-semibold text-cyan-300">
+            {telemetry.deviceTier || 'Estándar'} ({telemetry.bufferCapMb || 60}MB)
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between">
           <span className="text-slate-400">Motor de video:</span>
           <span className="text-slate-400 text-[11px]">{telemetry.engineName}</span>
         </div>
