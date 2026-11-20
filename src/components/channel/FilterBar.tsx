@@ -175,13 +175,25 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         </div>
       </div>
 
-      {/* Filter status strip & Reset button */}
-      <div className="flex items-center justify-between text-xs text-[#94a3b8] pt-1">
-        <div className="flex items-center gap-1.5 font-medium">
-          <span className="text-emerald-400 font-mono font-bold tabular-nums">
-            {totalFilteredCount.toLocaleString('es-ES')}
-          </span>
-          <span>canales encontrados</span>
+      {/* Filter status strip, Hide Offline toggle & Reset button */}
+      <div className="flex items-center justify-between text-xs text-[#94a3b8] pt-1 flex-wrap gap-2">
+        <div className="flex items-center gap-3 font-medium flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <span className="text-emerald-400 font-mono font-bold tabular-nums">
+              {totalFilteredCount.toLocaleString('es-ES')}
+            </span>
+            <span>canales encontrados</span>
+          </div>
+
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer select-none px-2 py-1 rounded-lg bg-[#111c2f] border border-[#1e293b] hover:border-slate-700 transition-colors">
+            <input
+              type="checkbox"
+              checked={filterState.hideOffline ?? true}
+              onChange={(e) => onFilterChange({ hideOffline: e.target.checked })}
+              className="rounded border-slate-700 text-emerald-500 focus:ring-emerald-400 w-3 h-3 cursor-pointer"
+            />
+            <span>Ocultar sin señal</span>
+          </label>
         </div>
 
         {hasActiveFilters && (

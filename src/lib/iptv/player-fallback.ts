@@ -17,10 +17,12 @@ export type ErrorKind =
   | 'mixed_content';
 
 /**
- * Watchdog timeout in ms: 8000ms per attempt.
+ * Watchdog timeout in ms:
+ * 5s for manifest, 7s for first fragment (direct), 9s for proxy.
  */
-export function watchdogMs(hasProxy = false): number {
-  return hasProxy ? 12000 : 8000;
+export function watchdogMs(hasProxy = false, isFirstFragment = false): number {
+  if (hasProxy) return 9000;
+  return isFirstFragment ? 7000 : 5000;
 }
 
 /**

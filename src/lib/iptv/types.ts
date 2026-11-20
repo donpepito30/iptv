@@ -134,6 +134,7 @@ export interface FilterCriteria {
   language: string;
   onlyWithLogo: boolean;
   onlyFavorites: boolean;
+  hideOffline?: boolean;
 }
 
 export type SortOption = 'popular' | 'name-asc' | 'name-desc' | 'country';

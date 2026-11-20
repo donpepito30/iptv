@@ -6,6 +6,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { getQualityRank } from './catalog.ts';
 import { normalizeText } from './categories.ts';
+import { isChannelVerifiedOffline } from './health-checker.ts';
 import { CatalogChannel } from './types.ts';
 
 export interface ChannelFilterState {
@@ -16,6 +17,7 @@ export interface ChannelFilterState {
   minQuality: string; // 'ALL' | '1080p' | '720p' | '480p'
   onlyFavorites: boolean;
   onlyLive: boolean; // Flag for live-only toggle
+  hideOffline?: boolean;
 }
 
 export const DEFAULT_FILTER_STATE: ChannelFilterState = {
@@ -26,6 +28,7 @@ export const DEFAULT_FILTER_STATE: ChannelFilterState = {
   minQuality: 'ALL',
   onlyFavorites: false,
   onlyLive: false,
+  hideOffline: true,
 };
 
 /**
@@ -108,6 +111,11 @@ export function filterCatalogChannels(
 
     // 6. Search query filter
     if (filter.search && !channelMatchesSearch(channel, filter.search)) {
+      return false;
+    }
+
+    // 7. Hide offline channels if verified
+    if (filter.hideOffline && isChannelVerifiedOffline(channel)) {
       return false;
     }
 

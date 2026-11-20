@@ -6,7 +6,7 @@
 import { ErrorKind } from './player-fallback.ts';
 import { INITIAL_TELEMETRY, PlayerTelemetry } from './player-telemetry.ts';
 
-export type PlayerState = 'idle' | 'checking' | 'loading' | 'playing' | 'error';
+export type PlayerState = 'idle' | 'checking' | 'loading' | 'playing' | 'reconnecting' | 'error';
 
 export interface PlayerEngineState {
   status: PlayerState;
@@ -17,10 +17,14 @@ export interface PlayerEngineState {
   qualityLevels: { index: number; height: number; bitrate: number }[];
   currentLevelIndex: number;
   telemetry: PlayerTelemetry;
+  reconnectAttempt: number;
+  maxAttempts: number;
 }
 
 export type PlayerAction =
+  | { type: 'START_CHECKING' }
   | { type: 'START_LOADING'; streamIndex: number; usingProxy: boolean }
+  | { type: 'START_RECONNECTING'; attempt: number; maxAttempts: number }
   | { type: 'SET_PLAYING' }
   | { type: 'SET_ERROR'; kind: ErrorKind; message: string }
   | { type: 'SET_LEVELS'; levels: { index: number; height: number; bitrate: number }[] }
@@ -36,6 +40,8 @@ export const INITIAL_PLAYER_STATE: PlayerEngineState = {
   qualityLevels: [],
   currentLevelIndex: -1,
   telemetry: INITIAL_TELEMETRY,
+  reconnectAttempt: 0,
+  maxAttempts: 3,
 };
 
 export function playerEngineReducer(
@@ -43,6 +49,13 @@ export function playerEngineReducer(
   action: PlayerAction
 ): PlayerEngineState {
   switch (action.type) {
+    case 'START_CHECKING':
+      return {
+        ...state,
+        status: 'checking',
+        errorKind: null,
+        errorMessage: null,
+      };
     case 'START_LOADING':
       return {
         ...state,
@@ -51,12 +64,33 @@ export function playerEngineReducer(
         usingProxy: action.usingProxy,
         errorKind: null,
         errorMessage: null,
+        reconnectAttempt: 0,
         telemetry: { ...INITIAL_TELEMETRY, isProxy: action.usingProxy },
       };
+    case 'START_RECONNECTING':
+      return {
+        ...state,
+        status: 'reconnecting',
+        reconnectAttempt: action.attempt,
+        maxAttempts: action.maxAttempts,
+        errorKind: null,
+        errorMessage: null,
+      };
     case 'SET_PLAYING':
-      return { ...state, status: 'playing', errorKind: null, errorMessage: null };
+      return {
+        ...state,
+        status: 'playing',
+        errorKind: null,
+        errorMessage: null,
+        reconnectAttempt: 0,
+      };
     case 'SET_ERROR':
-      return { ...state, status: 'error', errorKind: action.kind, errorMessage: action.message };
+      return {
+        ...state,
+        status: 'error',
+        errorKind: action.kind,
+        errorMessage: action.message,
+      };
     case 'SET_LEVELS':
       return { ...state, qualityLevels: action.levels };
     case 'SET_CURRENT_LEVEL':

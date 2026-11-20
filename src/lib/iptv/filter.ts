@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { isChannelVerifiedOffline } from './health-checker.ts';
 import { ChannelWithStream, FilterCriteria, Stream } from './types.ts';
 
 /**
@@ -52,6 +53,11 @@ export function filterChannels(
 
     // Logo filter
     if (criteria.onlyWithLogo && !ch.logo) {
+      return false;
+    }
+
+    // Hide offline channels (verified only)
+    if (criteria.hideOffline && isChannelVerifiedOffline(ch)) {
       return false;
     }
 

@@ -174,8 +174,8 @@ export const ChannelFilters: React.FC<ChannelFiltersProps> = ({
           </select>
         </div>
 
-        {/* Reset button or Logo filter toggle */}
-        {hasActiveFilters ? (
+        {/* Reset button or quick filter toggles */}
+        {hasActiveFilters && (
           <button
             type="button"
             onClick={onResetFilters}
@@ -184,20 +184,32 @@ export const ChannelFilters: React.FC<ChannelFiltersProps> = ({
             <RotateCcw className="w-3.5 h-3.5" />
             <span>{t('resetFilters', language)}</span>
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onCriteriaChange({ onlyWithLogo: !criteria.onlyWithLogo })}
-            className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl border transition-colors ${
-              criteria.onlyWithLogo
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                : 'bg-[#111c2f] border-[#1e293b] text-[#94a3b8] hover:text-[#e2e8f0]'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Solo con logo</span>
-          </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => onCriteriaChange({ onlyWithLogo: !criteria.onlyWithLogo })}
+          className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl border transition-colors ${
+            criteria.onlyWithLogo
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              : 'bg-[#111c2f] border-[#1e293b] text-[#94a3b8] hover:text-[#e2e8f0]'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Solo con logo</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onCriteriaChange({ hideOffline: criteria.hideOffline === false ? true : false })}
+          className={`flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-xl border transition-colors ${
+            criteria.hideOffline !== false
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              : 'bg-[#111c2f] border-[#1e293b] text-[#94a3b8] hover:text-[#e2e8f0]'
+          }`}
+        >
+          <span>Ocultar sin señal</span>
+        </button>
       </div>
     </div>
   );

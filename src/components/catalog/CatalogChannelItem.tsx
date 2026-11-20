@@ -6,6 +6,7 @@
 import { Play, Tv } from 'lucide-react';
 import React, { useState } from 'react';
 import { getChannelAvatar } from '../../lib/iptv/avatar.ts';
+import { useStreamHealth } from '../../lib/iptv/health-checker.ts';
 import { CatalogChannel } from '../../lib/iptv/types.ts';
 
 export interface CatalogChannelItemProps {
@@ -23,6 +24,8 @@ export const CatalogChannelItem: React.FC<CatalogChannelItemProps> = ({
 }) => {
   const [logoStage, setLogoStage] = useState<number>(0);
   const avatar = getChannelAvatar(channel.name);
+  const primaryUrl = channel.streams?.[0]?.url || channel.primaryStreamUrl;
+  const health = useStreamHealth(primaryUrl, 2);
 
   const getLogoSrc = () => {
     if (!channel.logo) return null;
@@ -73,6 +76,40 @@ export const CatalogChannelItem: React.FC<CatalogChannelItemProps> = ({
         {/* Channel Details */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
+            <span
+              role="status"
+              aria-label={
+                health === 'live'
+                  ? 'Señal en vivo comprobada'
+                  : health === 'unstable'
+                  ? 'Señal inestable o lenta'
+                  : health === 'offline'
+                  ? 'Sin señal'
+                  : 'Verificando señal'
+              }
+              title={
+                health === 'live'
+                  ? 'En vivo'
+                  : health === 'unstable'
+                  ? 'Señal inestable'
+                  : health === 'offline'
+                  ? 'Sin señal'
+                  : 'Verificando'
+              }
+              className="inline-flex items-center shrink-0"
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  health === 'live'
+                    ? 'bg-emerald-400 animate-pulse'
+                    : health === 'unstable'
+                    ? 'bg-amber-400'
+                    : health === 'offline'
+                    ? 'bg-slate-500'
+                    : 'bg-slate-400 animate-pulse'
+                }`}
+              />
+            </span>
             <span className="text-[11px] font-mono text-slate-500 tabular-nums">
               #{indexNumber}
             </span>

@@ -6,6 +6,7 @@
 import { Heart, Play, Radio } from 'lucide-react';
 import React, { useState } from 'react';
 import { getChannelAvatar } from '../../lib/iptv/avatar.ts';
+import { useStreamHealth } from '../../lib/iptv/health-checker.ts';
 import { CatalogChannel } from '../../lib/iptv/types.ts';
 
 export interface ChannelCardProps {
@@ -26,6 +27,8 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   // 0: direct, 1: proxied, 2: failed (avatar fallback)
   const [logoState, setLogoState] = useState<number>(0);
   const avatar = getChannelAvatar(channel.name);
+  const primaryUrl = channel.streams?.[0]?.url || channel.primaryStreamUrl;
+  const health = useStreamHealth(primaryUrl, 2);
 
   const getLogoSrc = () => {
     if (!channel.logo) return null;
@@ -60,10 +63,40 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
       {/* Top Header inside card: Live Beacon + Quality + Favorite Heart */}
       <div className="flex items-center justify-between gap-1.5 mb-2.5">
         <div className="flex items-center gap-1.5">
-          {/* Badge LIVE */}
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] font-bold tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>EN VIVO</span>
+          {/* Health indicator badge */}
+          <span
+            role="status"
+            aria-label={
+              health === 'live'
+                ? 'Estado de transmisión: En vivo comprobado'
+                : health === 'unstable'
+                ? 'Estado de transmisión: Señal inestable o lenta'
+                : health === 'offline'
+                ? 'Estado de transmisión: Sin señal'
+                : 'Estado de transmisión: Verificando señal'
+            }
+            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border text-[10px] font-bold tracking-wider ${
+              health === 'live'
+                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                : health === 'unstable'
+                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                : health === 'offline'
+                ? 'bg-slate-800 border-slate-700 text-slate-400'
+                : 'bg-slate-800/80 border-slate-700/80 text-slate-300'
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                health === 'live'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : health === 'unstable'
+                  ? 'bg-amber-400'
+                  : health === 'offline'
+                  ? 'bg-slate-500'
+                  : 'bg-slate-400 animate-pulse'
+              }`}
+            />
+            <span>{health === 'offline' ? 'SIN SEÑAL' : health === 'unstable' ? 'INESTABLE' : 'EN VIVO'}</span>
           </span>
 
           {/* Quality Badge */}

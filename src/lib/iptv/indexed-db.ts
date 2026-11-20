@@ -6,14 +6,21 @@
 import { CatalogResult } from './types.ts';
 
 const DB_NAME = 'iptv_player_cache';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'catalog_store';
+const HEALTH_STORE_NAME = 'health_store';
 const CACHE_KEY = 'global_catalog_v2';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const HEALTH_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 interface CachePayload {
   timestamp: number;
   data: CatalogResult;
+}
+
+export interface HealthPayload {
+  status: string;
+  timestamp: number;
 }
 
 function openDatabase(): Promise<IDBDatabase> {
@@ -29,6 +36,9 @@ function openDatabase(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
+      }
+      if (!db.objectStoreNames.contains(HEALTH_STORE_NAME)) {
+        db.createObjectStore(HEALTH_STORE_NAME);
       }
     };
 
@@ -111,3 +121,50 @@ export async function clearCatalogIndexedDb(): Promise<void> {
     // Ignore
   }
 }
+
+/**
+ * Loads cached stream health status from IndexedDB if fresher than 30 minutes.
+ */
+export async function loadHealthFromIndexedDb(url: string): Promise<HealthPayload | null> {
+  if (!url) return null;
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve) => {
+      const tx = db.transaction(HEALTH_STORE_NAME, 'readonly');
+      const store = tx.objectStore(HEALTH_STORE_NAME);
+      const request = store.get(url);
+      request.onsuccess = () => {
+        const payload = request.result as HealthPayload | undefined;
+        if (payload && Date.now() - payload.timestamp < HEALTH_TTL_MS) {
+          resolve(payload);
+        } else {
+          resolve(null);
+        }
+      };
+      request.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persists stream health status in IndexedDB with 30-min timestamp.
+ */
+export async function saveHealthToIndexedDb(url: string, status: string): Promise<void> {
+  if (!url) return;
+  try {
+    const db = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(HEALTH_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(HEALTH_STORE_NAME);
+      const payload: HealthPayload = { status, timestamp: Date.now() };
+      const request = store.put(payload, url);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    // Graceful fallback
+  }
+}
+
